@@ -33,6 +33,7 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 .act { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .08); color: #e6e9f6; border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 .act:hover { background: rgba(255, 255, 255, .16); }
 .act.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 0; color: #fff; font-weight: 600; }
+.act.big { flex: 1 1 100%; padding: 9px 12px; font-size: 14px; font-weight: 700; border-radius: 10px; }
 .act.end { margin-left: auto; color: #ff8d9b; }
 .act.on { outline: 1px solid var(--ok); color: var(--ok); }
 .chat { display: flex; gap: 5px; }

@@ -103,7 +103,7 @@ function flushUtterance() {
 }
 
 function connectDeepgram() {
-  const url = 'wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&punctuate=true' +
+  const url = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&smart_format=true&punctuate=true' +
     '&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true';
   const ws = new WebSocket(url, ['token', S.cfg.deepgramKey]);
   S.ws = ws;
@@ -118,6 +118,7 @@ function connectDeepgram() {
     let m; try { m = JSON.parse(ev.data); } catch { return; }
     if (m.type === 'Results') {
       const t = m.channel?.alternatives?.[0]?.transcript || '';
+      S.interim = m.is_final ? '' : t;
       if (m.is_final) {
         if (t) S.buf += ' ' + t;
         renderHeard();
@@ -205,9 +206,16 @@ function submitManual() {
 }
 function answerNow() {
   clearTimeout(S.timer);
-  const q = (S.pending + ' ' + S.buf).trim() || S.transcript.slice(-3).join(' ');
-  S.buf = '';
-  ask(q, '', false, true);
+  // Todo lo que se dijo desde la última vez que pulsaste Responder (incluye lo que aún se está transcribiendo)
+  const tail = (S.buf + ' ' + (S.interim || '')).trim();
+  S.buf = ''; S.interim = '';
+  if (tail) S.transcript.push(tail);
+  let lines = S.transcript.slice(S.mark || 0);
+  if (!lines.length) lines = S.transcript.slice(-3);
+  S.mark = S.transcript.length;
+  S.pending = '';
+  renderHeard();
+  ask(lines.join(' ').slice(-1500), '', false, true);
 }
 api.onAnswerNow(answerNow);
 api.onToggleListen(toggleListen);
@@ -318,7 +326,7 @@ setInterval(() => {
 }, 150);
 
 function clearAnswer() {
-  S.askId++; S.pending = ''; S.buf = '';
+  S.askId++; S.pending = ''; S.buf = ''; S.interim = ''; S.mark = S.transcript.length;
   showAnswer('', ''); $('answerLabel').textContent = 'Respuesta sugerida';
   idleStatus();
 }

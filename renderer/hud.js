@@ -11,7 +11,9 @@ function render() {
   $('dot').className = 'dot ' + (st.dotCls || '');
   $('status').textContent = st.status || 'Listo';
   $('label').textContent = st.label || '';
-  $('en').textContent = st.en || 'Pulsa ▶ en el panel o Ctrl+Alt+L para empezar.';
+  $('en').textContent = st.en || (st.listening
+    ? (st.auto ? 'Escuchando… responderé solo cuando terminen de preguntar.' : 'Escuchando. Cuando te pregunten, pulsa ⚡ Responder (Ctrl+Alt+Espacio).')
+    : 'Pulsa ▶ en el panel o Ctrl+Alt+L para empezar.');
   $('es').textContent = st.es || '';
   $('qsum').textContent = st.qsum ? '📝 ' + st.qsum : '';
   $('qsum').style.display = st.qsum ? '' : 'none';

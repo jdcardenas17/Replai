@@ -56,7 +56,7 @@ const DEFAULT_CFG = {
   anthropicKey: '',
   deepgramKey: '',
   model: 'claude-haiku-5-5',   // el más rápido: lo importante en vivo es la velocidad
-  auto: true,
+  auto: false,
   opacity: 0.95,
   wizardDone: false,
   workspaceId: '',
@@ -73,6 +73,7 @@ function readCfg() {
   let raw = {};
   try { raw = JSON.parse(fs.readFileSync(cfgPath(), 'utf8')); } catch {}
   const cfg = { ...DEFAULT_CFG, ...raw };
+  if (!raw.manualV1) { cfg.auto = false; cfg.manualV1 = true; }   // migración: ahora piensa solo cuando tú pulsas Responder
   if (!raw.speedV2) { cfg.model = DEFAULT_CFG.model; cfg.speedV2 = true; }   // migración única: pasa a modelo rápido
   cfg._raw = {};
   for (const k of SECRET_FIELDS) {
