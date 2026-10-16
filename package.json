@@ -1,0 +1,56 @@
+{
+  "name": "replai",
+  "version": "1.0.0",
+  "description": "Replai: copiloto de reuniones en inglés. Escucha, sugiere respuestas y recuerda contexto. Invisible al compartir pantalla.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "publicar": "node publicar.js"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "pdf-parse": "1.1.1"
+  },
+  "devDependencies": {
+    "electron": "33.2.0",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.juan.replai",
+    "productName": "Replai",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Replai",
+      "artifactName": "Instalar-Replai-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "jdcardenas17",
+        "repo": "Replai",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "productName": "Replai",
+  "repository": "https://github.com/jdcardenas17/Replai"
+}

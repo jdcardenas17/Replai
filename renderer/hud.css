@@ -1,0 +1,41 @@
+:root { --fs: 20px; --accent: #6c7bff; --accent2: #a06bff; --ok: #38d996; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; color: #eef0fa; font: 13px/1.45 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; user-select: none; }
+.hidden { display: none !important; }
+#hud { position: absolute; inset: 0; display: flex; flex-direction: column; background: rgba(10, 12, 20, .84); border: 1px solid rgba(120, 135, 255, .28); border-radius: 14px; overflow: hidden; }
+.bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; -webkit-app-region: drag; cursor: move; background: rgba(255, 255, 255, .035); border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.bar > * { -webkit-app-region: no-drag; }
+.bar #dot, .bar #status, .bar #timer, .bar .spacer { -webkit-app-region: drag; }
+.spacer { flex: 1; }
+#status { font-size: 11.5px; color: #aab3d0; }
+#timer { font-size: 11.5px; color: #6f7a99; font-variant-numeric: tabular-nums; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #55607e; flex: none; }
+.dot.on { background: var(--ok); animation: pulse 1.6s infinite; }
+.dot.busy { background: #ffb84d; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 #38d99699; } 70% { box-shadow: 0 0 0 7px #38d99600; } 100% { box-shadow: 0 0 0 0 #38d99600; } }
+.ib { background: transparent; border: 0; color: #8f9abd; border-radius: 6px; min-width: 24px; height: 22px; font-size: 11px; cursor: pointer; padding: 0 4px; }
+.ib:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+#op { width: 54px; height: 3px; accent-color: var(--accent); cursor: pointer; }
+
+#body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 12px 10px; gap: 6px; }
+.collapsed #body, .collapsed .grip { display: none; }
+#answer { flex: 1; overflow-y: auto; min-height: 40px; user-select: text; }
+#answer::-webkit-scrollbar { width: 6px; } #answer::-webkit-scrollbar-thumb { background: #2f3858; border-radius: 6px; }
+.label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #6f7a99; margin-bottom: 2px; }
+.en { font-size: var(--fs); font-weight: 600; line-height: 1.36; color: #fff; white-space: pre-wrap; }
+.es { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(140, 155, 255, .3); color: #8be0b4; font-size: calc(var(--fs) * .68); white-space: pre-wrap; }
+.es:empty { display: none; }
+.heardbox { background: rgba(108, 123, 255, .1); border-left: 3px solid var(--accent); border-radius: 8px; padding: 6px 10px; flex: none; }
+.heard { font-size: calc(var(--fs) * .72); line-height: 1.35; color: #dfe4f7; max-height: 28vh; overflow-y: auto; white-space: pre-wrap; user-select: text; }
+.heard::-webkit-scrollbar { width: 5px; } .heard::-webkit-scrollbar-thumb { background: #3a4575; border-radius: 5px; }
+.actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.act { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .08); color: #e6e9f6; border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.act:hover { background: rgba(255, 255, 255, .16); }
+.act.primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border: 0; color: #fff; font-weight: 600; }
+.act.end { margin-left: auto; color: #ff8d9b; }
+.act.on { outline: 1px solid var(--ok); color: var(--ok); }
+.chat { display: flex; gap: 5px; }
+.chat input { flex: 1; background: rgba(0, 0, 0, .35); color: #fff; border: 1px solid rgba(255, 255, 255, .12); border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12.5px; outline: none; user-select: text; }
+.chat input:focus { border-color: var(--accent); }
+.grip { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 55%, rgba(140, 155, 255, .55) 55%, rgba(140, 155, 255, .55) 62%, transparent 62%, transparent 72%, rgba(140, 155, 255, .55) 72%, rgba(140, 155, 255, .55) 79%, transparent 79%); }
+.ct { position: absolute; top: 0; left: 0; right: 0; background: #ffb84d; color: #000; font-size: 10px; text-align: center; border-radius: 14px 14px 0 0; }

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Replai</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Barra superior -->
+  <header>
+    <div class="brand drag">
+      <div class="logo"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M7 8v8M17 8v8M2 11v2M22 11v2"/></svg></div>
+      <span class="name">Replai</span>
+      <span class="pill"><span id="dot" class="dot"></span><span id="status">Listo</span></span>
+    </div>
+    <div class="win-btns">
+      <button class="icon" id="btnHide" title="Ocultar (Ctrl+Alt+H)">—</button>
+      <button class="icon close" id="btnQuit" title="Cerrar">✕</button>
+    </div>
+  </header>
+
+  <div id="updateBar" class="update hidden"><span id="updateTxt"></span><button id="btnUpdate" class="primary">Reiniciar y actualizar</button></div>
+
+  <nav>
+    <button class="tab active" data-tab="live">En vivo</button>
+    <button class="tab" data-tab="meetings">Reuniones</button>
+    <button class="tab" data-tab="profile">Mi perfil</button>
+    <button class="tab" data-tab="settings">Ajustes</button>
+  </nav>
+
+  <!-- EN VIVO -->
+  <section id="v-live" class="view active">
+    <div class="live-scroll">
+      <div id="startCard" class="card start">
+        <div class="meet-line">Reunión: <b id="liveMeetingName">—</b></div>
+        <button id="btnListen" class="big">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          <span id="btnListenTxt">Empezar a escuchar</span>
+        </button>
+        <label class="switch"><input type="checkbox" id="autoSw"><span class="slider"></span><span>Responder automáticamente cuando me pregunten</span></label>
+      </div>
+
+      <div id="answerCard" class="card answer">
+        <div class="label" id="answerLabel">Respuesta sugerida</div>
+        <div id="en" class="en">Aquí aparecerá lo que debes decir, en inglés y con su traducción.</div>
+        <div id="es" class="es"></div>
+        <div class="card-actions"><button class="ghost" id="btnCopy">Copiar</button></div>
+      </div>
+
+      <div class="card heard-card">
+        <div class="label">Lo que se escucha</div>
+        <div id="heardText" class="heard">—</div>
+      </div>
+
+      <div class="label hist-title">Historial de esta sesión</div>
+      <div id="histList"></div>
+    </div>
+    <footer>
+      <input id="manual" placeholder="Escribe o pega una pregunta en inglés…">
+      <button id="btnAsk" class="primary">Responder</button>
+    </footer>
+  </section>
+
+  <!-- REUNIONES -->
+  <section id="v-meetings" class="view">
+    <div class="pad">
+      <div class="row">
+        <select id="meetingSel"></select>
+        <button id="btnNewMeeting" class="primary">+ Nueva</button>
+      </div>
+      <label>Nombre</label>
+      <input id="mName" placeholder="Ej: Daily Proyecto Banco · Entrevista Acme">
+      <label>Contexto de esta reunión <small>(opcional, cámbialo cuando quieras)</small></label>
+      <textarea id="mContext" rows="4" placeholder="Rol, tecnologías, quién asiste, de qué se hablará hoy…"></textarea>
+      <label>Memoria <small>(se actualiza sola al terminar; puedes editarla)</small></label>
+      <textarea id="mMemory" rows="7" placeholder="Aún vacía. Se llena cuando termines la primera reunión."></textarea>
+      <div class="row">
+        <button id="btnSaveMeeting" class="primary">Guardar</button>
+        <button id="btnFinish">⏹ Terminar reunión y guardar memoria</button>
+      </div>
+      <button id="btnDelMeeting" class="danger link">Borrar esta reunión</button>
+    </div>
+  </section>
+
+  <!-- PERFIL -->
+  <section id="v-profile" class="view">
+    <div class="pad">
+      <p class="hint top">Aquí está tu hoja de vida. Replai la usa para responder como si fueras tú. Mientras más detalle (proyectos, tecnologías, logros), mejores respuestas.</p>
+      <div class="row">
+        <button id="btnImport">📄 Cargar PDF / TXT</button>
+        <button id="btnSaveProfile" class="primary">Guardar perfil</button>
+      </div>
+      <textarea id="profile" rows="16" placeholder="Pega aquí tu hoja de vida…"></textarea>
+    </div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="v-settings" class="view">
+    <div class="pad">
+      <label>Tu nombre</label>
+      <input id="userName">
+      <label>Clave de Claude (Anthropic) <a href="#" data-open="https://console.anthropic.com/settings/keys">obtener</a></label>
+      <input id="anthropicKey" type="password" placeholder="sk-ant-…">
+      <label>ID de workspace de Anthropic <small>(solo si tu clave da error de "workspace")</small></label>
+      <input id="workspaceId" placeholder="wrkspc_…">
+      <label>Clave de Deepgram (transcripción) <a href="#" data-open="https://console.deepgram.com/signup">obtener</a></label>
+      <input id="deepgramKey" type="password">
+      <label>Velocidad / calidad</label>
+      <select id="model">
+        <option value="claude-sonnet-5-5">Equilibrado (Sonnet 5.5)</option>
+        <option value="claude-haiku-5-5">Más rápido (Haiku 5.5)</option>
+        <option value="claude-opus-5-5">Más preciso (Opus 5.5)</option>
+      </select>
+      <label>Tamaño de letra de la respuesta: <b id="fsVal"></b></label>
+      <input id="fontSize" type="range" min="14" max="36" step="1">
+      <label>Transparencia de la ventana</label>
+      <input id="opacity" type="range" min="40" max="100" step="2">
+      <button id="btnSaveCfg" class="primary wide">Guardar ajustes</button>
+
+      <div class="card keys">
+        <div class="label">Atajos de teclado</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> ocultar / mostrar</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Espacio</kbd> responder a lo último</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> empezar / detener</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> clic a través</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↑↓</kbd> transparencia</div>
+        <div class="shield">🛡 Esta ventana no aparece cuando compartes pantalla: solo tú la ves.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ASISTENTE DE PRIMER USO -->
+  <div id="wizard" class="wizard hidden">
+    <div class="wiz-card">
+      <div class="steps"><i class="on"></i><i></i><i></i></div>
+
+      <div class="wstep" data-step="1">
+        <h2>¡Bienvenido, Juan! 👋</h2>
+        <p>Replai escucha tus reuniones en inglés y te dice qué responder, con traducción al español. Primero necesitamos dos claves gratuitas o de bajo costo.</p>
+        <label>Clave de Claude (Anthropic) <a href="#" data-open="https://console.anthropic.com/settings/keys">obtener</a></label>
+        <input id="wAnthropic" type="password" placeholder="sk-ant-…">
+        <label>Clave de Deepgram <a href="#" data-open="https://console.deepgram.com/signup">obtener</a></label>
+        <input id="wDeepgram" type="password">
+        <label>¿Cómo te llamas?</label>
+        <input id="wName">
+      </div>
+
+      <div class="wstep hidden" data-step="2">
+        <h2>Tu hoja de vida</h2>
+        <p>Sube tu hoja de vida para que las respuestas hablen de tu experiencia real.</p>
+        <button id="wImport" class="wide">📄 Cargar PDF / TXT</button>
+        <textarea id="wProfile" rows="8" placeholder="…o pégala aquí"></textarea>
+      </div>
+
+      <div class="wstep hidden" data-step="3">
+        <h2>Tu primera reunión</h2>
+        <p>Dale un nombre y, si quieres, cuéntale de qué trata. Podrás cambiarlo siempre.</p>
+        <label>Nombre</label>
+        <input id="wMeet" placeholder="Ej: Daily del proyecto">
+        <label>Contexto <small>(opcional)</small></label>
+        <textarea id="wCtx" rows="4" placeholder="Rol, tecnologías, equipo…"></textarea>
+      </div>
+
+      <div class="wiz-nav">
+        <button id="wBack" class="ghost">Atrás</button>
+        <button id="wNext" class="primary">Siguiente</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

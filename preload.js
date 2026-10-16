@@ -1,0 +1,41 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+const on = (ch, fn) => ipcRenderer.on(ch, (_e, d) => fn(d));
+
+contextBridge.exposeInMainWorld('api', {
+  getCfg: () => ipcRenderer.invoke('cfg:get'),
+  setCfg: p => ipcRenderer.invoke('cfg:set', p),
+  getProfile: () => ipcRenderer.invoke('profile:get'),
+  setProfile: t => ipcRenderer.invoke('profile:set', t),
+  importProfile: () => ipcRenderer.invoke('profile:import'),
+  listMeetings: () => ipcRenderer.invoke('meetings:list'),
+  saveMeeting: m => ipcRenderer.invoke('meetings:save', m),
+  deleteMeeting: id => ipcRenderer.invoke('meetings:delete', id),
+  ask: p => ipcRenderer.invoke('ask', p),
+  summarize: p => ipcRenderer.invoke('summarize', p),
+  openExternal: u => ipcRenderer.invoke('app:open', u),
+  quit: () => ipcRenderer.invoke('app:quit'),
+  minimize: () => ipcRenderer.invoke('app:minimize'),
+  onChunk: fn => on('ask:chunk', fn),
+  onDone: fn => on('ask:done', fn),
+  onError: fn => on('ask:error', fn),
+  onAnswerNow: fn => on('ui:answer-now', fn),
+  onToggleListen: fn => on('ui:toggle-listen', fn),
+  onClickThrough: fn => on('ui:clickthrough', fn),
+  onUpdate: fn => on('update:status', fn),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  // HUD flotante
+  hudUpdate: s => ipcRenderer.send('hud:update', s),
+  hudCmd: c => ipcRenderer.send('hud:cmd', c),
+  onHudState: fn => on('hud:state', fn),
+  onHudCmd: fn => on('hud:cmd', fn),
+  onHudOpacity: fn => on('hud:opacity', fn),
+  onHudClickThrough: fn => on('hud:clickthrough', fn),
+  hudShow: () => ipcRenderer.invoke('hud:show'),
+  hudHide: () => ipcRenderer.invoke('hud:hide'),
+  hudFocusable: v => ipcRenderer.invoke('hud:focusable', v),
+  hudSetBounds: b => ipcRenderer.invoke('hud:setbounds', b),
+  hudGetBounds: () => ipcRenderer.invoke('hud:getbounds'),
+  controlShow: () => ipcRenderer.invoke('control:show'),
+  controlHide: () => ipcRenderer.invoke('control:hide'),
+});

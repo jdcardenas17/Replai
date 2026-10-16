@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>HUD</title>
+<link rel="stylesheet" href="hud.css">
+</head>
+<body>
+  <div id="hud">
+    <div id="bar" class="bar">
+      <span id="dot" class="dot"></span>
+      <span id="status">Listo</span>
+      <span id="timer">00:00</span>
+      <span class="spacer"></span>
+      <input id="op" type="range" min="25" max="100" title="Transparencia">
+      <button id="fsMinus" class="ib" title="Letra más pequeña">A−</button>
+      <button id="fsPlus" class="ib" title="Letra más grande">A+</button>
+      <button id="btnCollapse" class="ib" title="Minimizar">▁</button>
+      <button id="btnClose" class="ib" title="Ocultar (Ctrl+Alt+H)">✕</button>
+    </div>
+
+    <div id="body">
+      <div id="heardBox" class="heardbox">
+        <div class="label">Te dicen</div>
+        <div id="heard" class="heard"></div>
+      </div>
+      <div id="answer">
+        <div id="label" class="label"></div>
+        <div id="en" class="en"></div>
+        <div id="es" class="es"></div>
+      </div>
+
+      <div class="actions">
+        <button id="aAnswer" class="act primary">Responder</button>
+        <button id="aShot" class="act">Captura</button>
+        <button id="aClear" class="act">Limpiar</button>
+        <button id="aAuto" class="act">Auto</button>
+        <button id="aToggle" class="act">⏸</button>
+        <button id="aEnd" class="act end">Terminar</button>
+      </div>
+      <div class="chat">
+        <input id="chat" placeholder="Escribe una pregunta o instrucción…">
+        <button id="aSend" class="act primary">➤</button>
+      </div>
+    </div>
+    <div id="grip" class="grip" title="Cambiar tamaño"></div>
+  </div>
+  <div id="ct" class="ct hidden">Clic a través · Ctrl+Alt+C</div>
+  <script src="hud.js"></script>
+</body>
+</html>
