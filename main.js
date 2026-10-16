@@ -74,9 +74,11 @@ function readCfg() {
   try { raw = JSON.parse(fs.readFileSync(cfgPath(), 'utf8')); } catch {}
   const cfg = { ...DEFAULT_CFG, ...raw };
   if (!raw.speedV2) { cfg.model = DEFAULT_CFG.model; cfg.speedV2 = true; }   // migración única: pasa a modelo rápido
+  cfg._raw = {};
   for (const k of SECRET_FIELDS) {
     if (raw[k] && raw[k].startsWith('enc:')) {
-      try { cfg[k] = safeStorage.decryptString(Buffer.from(raw[k].slice(4), 'base64')); } catch { cfg[k] = ''; }
+      try { cfg[k] = safeStorage.decryptString(Buffer.from(raw[k].slice(4), 'base64')); }
+      catch { cfg[k] = ''; cfg._raw[k] = raw[k]; }   // no se pudo descifrar ahora: se conserva tal cual para no borrarla
     }
   }
   return cfg;
@@ -86,8 +88,11 @@ function writeCfg(cfg) {
   for (const k of SECRET_FIELDS) {
     if (out[k] && safeStorage.isEncryptionAvailable()) {
       out[k] = 'enc:' + safeStorage.encryptString(out[k]).toString('base64');
+    } else if (!out[k] && cfg._raw?.[k]) {
+      out[k] = cfg._raw[k];
     }
   }
+  delete out._raw;
   fs.writeFileSync(cfgPath(), JSON.stringify(out, null, 2));
 }
 
@@ -299,7 +304,7 @@ REGLAS:
 - SIEMPRE da una respuesta coherente y segura. NUNCA digas "I don't know", "I'm not sure", "I haven't worked with that", ni pidas que te expliquen más, ni respondas con una pregunta, ni uses frases de relleno para ganar tiempo. Si el tema no está en el perfil, responde con conocimiento técnico real y correcto: cómo funciona, cómo lo abordarías, qué buenas prácticas aplicarías, y conéctalo con experiencia afín que SÍ aparezca en el perfil. Usa formulaciones generales y creíbles ("in the projects I've worked on", "usually what I do is...") y NO inventes datos específicos verificables que no estén en el perfil (nombres de empresas, cargos, cifras, fechas, títulos, certificaciones).
 - Que no se note que es generado por IA: habla como persona normal, con ritmo oral y alguna imperfección leve natural; evita palabras típicas de IA (delve, leverage, robust, seamless, crucial, comprehensive), estructuras demasiado pulidas o simétricas, listas, y cualquier mención a ser un asistente o una IA.
 - En reuniones diarias (daily/standup): si preguntan qué hiciste ayer/hoy/bloqueos, usa la memoria de reuniones pasadas y el contexto actual.
-- Si lo último dicho NO requiere respuesta del usuario (saludo ya respondido, comentario de otra persona, explicación sin pregunta), responde únicamente: [NO_RESPONSE]
+- Responde únicamente [NO_RESPONSE] SOLO cuando lo último sea claramente una frase suelta que no espera nada del usuario (p. ej. "okay", "mm-hmm", "thanks", "let me share my screen", ruido o charla entre otras personas). Cualquier pregunta, petición o invitación a hablar ("tell me about yourself", "walk me through...", "describe...", "how are you?", "can you hear me?") SIEMPRE se responde, aunque sea simple o un saludo.
 - Solo si la transcripción es totalmente ininteligible (no si el tema es difícil), sugiere: "Sorry, you cut out for a second, could you say that again?"
 
 FORMATO ESTRICTO (sin nada más, en este orden):
@@ -321,7 +326,7 @@ FORMATO ESTRICTO (sin nada más, en este orden):
   return [{ type: 'text', text: parts.join(''), cache_control: { type: 'ephemeral' } }];
 }
 
-ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen }) => {
+ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force }) => {
   const cfg = readCfg();
   if (!cfg.anthropicKey) { e.sender.send('ask:error', { id, error: 'Falta la clave de Anthropic (⚙ Ajustes).' }); return; }
   const profile = (() => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } })();
@@ -331,7 +336,8 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
   const recent = (transcript || []).slice(-40).map(l => `- ${l}`).join('\n');
   const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
     (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
-    (extraNote ? `\n\nNota del usuario: ${extraNote}` : '');
+    (extraNote ? `\n\nNota del usuario: ${extraNote}` : '') +
+    (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '');
   try {
     let content = user;
     if (withScreen) {

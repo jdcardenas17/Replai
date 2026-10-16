@@ -35,7 +35,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = async () => { await s
 document.querySelectorAll('[data-open]').forEach(a => a.onclick = e => { e.preventDefault(); api.openExternal(a.dataset.open); });
 
 // ---------- Claude ----------
-function ask(question, note, withScreen) {
+function ask(question, note, withScreen, force) {
   const q = (question || '').trim();
   if (!q && !S.transcript.length && !withScreen) return;
   const id = ++S.askId;
@@ -43,7 +43,7 @@ function ask(question, note, withScreen) {
   S.raw = ''; S.qsum = '';
   $('answerLabel').textContent = 'Pensando…';
   setStatus('Pensando…', 'busy');
-  api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen });
+  api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen, force });
 }
 function parseAnswer(raw, final = false) {
   let q = '', rest = raw;
@@ -67,7 +67,7 @@ api.onChunk(({ id, chunk }) => {
 api.onDone(({ id }) => {
   if (id !== S.askId) return;
   idleStatus();
-  if (S.raw.trim().startsWith('[NO_RESPONSE]')) { $('answerLabel').textContent = 'Respuesta sugerida · lo último no necesitaba respuesta'; return; }
+  if (S.raw.trim().startsWith('[NO_RESPONSE]')) { $('answerLabel').textContent = 'No detecté pregunta en lo último · pulsa Responder si quieres respuesta'; return; }
   const { q, en, es } = parseAnswer(S.raw, true);
   S.qsum = q;
   if (!S.raw.includes('---EN---')) showAnswer(en, es);
@@ -201,13 +201,13 @@ $('manual').addEventListener('keydown', e => { if (e.key === 'Enter') submitManu
 function submitManual() {
   const v = $('manual').value.trim();
   if (!v) return answerNow();
-  S.transcript.push(v); renderHeard(); $('manual').value = ''; ask(v);
+  S.transcript.push(v); renderHeard(); $('manual').value = ''; ask(v, '', false, true);
 }
 function answerNow() {
   clearTimeout(S.timer);
   const q = (S.pending + ' ' + S.buf).trim() || S.transcript.slice(-3).join(' ');
   S.buf = '';
-  ask(q);
+  ask(q, '', false, true);
 }
 api.onAnswerNow(answerNow);
 api.onToggleListen(toggleListen);
@@ -329,7 +329,7 @@ api.onHudCmd(async c => {
     case 'clear': return clearAnswer();
     case 'auto': $('autoSw').checked = !$('autoSw').checked; return $('autoSw').onchange();
     case 'toggle': return toggleListen();
-    case 'chat': S.transcript.push(c.text); renderHeard(); return ask(c.text);
+    case 'chat': S.transcript.push(c.text); renderHeard(); return ask(c.text, '', false, true);
     case 'font':
       S.cfg.fontSize = Math.min(40, Math.max(12, (S.cfg.fontSize || 22) + c.delta));
       $('fontSize').value = S.cfg.fontSize; $('fsVal').textContent = S.cfg.fontSize;
