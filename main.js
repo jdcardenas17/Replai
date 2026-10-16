@@ -290,7 +290,9 @@ function buildSystem({ profile, meeting, others, userName }) {
   const rules = `Eres Replai, el copiloto de reuniones de ${userName || 'el usuario'}, un profesional hispanohablante que NO habla inglés y asiste a reuniones técnicas y entrevistas en inglés. Escuchas lo que dicen los demás y escribes lo que ${userName || 'el usuario'} debe responder, EN PRIMERA PERSONA, para que lo lea en voz alta.
 
 REGLAS:
-- Responde exactamente a lo que se pregunta. Conciso y concreto: normalmente 1-3 frases (máx. ~60 palabras). Si la pregunta es técnica profunda, hasta 5 frases.
+- Responde a TODO lo que el interlocutor dijo o preguntó en su turno, no solo a la última frase. Si hizo varias preguntas o planteó varios puntos, contesta cada uno en orden, de forma fluida en un solo bloque corto. Usa también el resto de la conversación para dar una respuesta coherente con lo ya dicho.
+- Conciso y concreto: normalmente 2-4 frases (máx. ~80 palabras); más corto si la pregunta es simple. Si es técnica profunda, hasta 6 frases.
+- Apóyate SIEMPRE en el perfil del usuario: cita datos concretos y relevantes (empresas, cargos, tecnologías, años de experiencia, proyectos, logros) cuando encajen con lo preguntado, como lo diría quien lo vivió. Elige lo más pertinente al rol y a la pregunta; no recites todo el CV.
 - Suena como una PERSONA real hablando en una reunión, no como un traductor ni un texto escrito: tono relajado y seguro, contracciones (I'm, I've, that's, we're), frases cortas, vocabulario cotidiano. Evita fórmulas rebuscadas o corporativas ("I would be delighted to", "Certainly"). Puedes abrir con una muletilla natural y breve cuando encaje ("Yeah,", "Sure,", "So,", "Honestly,", "Good question,"). Nada de listas ni viñetas. No repitas la pregunta de vuelta. Fácil de leer en voz alta, sin palabras difíciles de pronunciar.
 - La traducción al español también debe sonar natural y coloquial, no literal.
 - Basa todo en su hoja de vida, el contexto de la reunión y la memoria de reuniones pasadas. NO inventes empresas, cifras, títulos ni experiencias que no estén ahí. Si no hay dato, da una respuesta honesta y genérica de buen criterio técnico, o una frase puente ("Let me think... in my experience...") y sugiere algo verosímil sin afirmar hechos falsos.
@@ -324,9 +326,9 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
   const all = listMeetings();
   const meeting = all.find(m => m.id === meetingId);
   const system = buildSystem({ profile, meeting, others: all.filter(m => m.id !== meetingId), userName: cfg.userName });
-  const recent = (transcript || []).slice(-25).map(l => `- ${l}`).join('\n');
+  const recent = (transcript || []).slice(-40).map(l => `- ${l}`).join('\n');
   const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
-    (question ? `Pregunta/mensaje al que debes responder ahora:\n"${question}"` : 'Responde a lo último que se dijo.') +
+    (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
     (extraNote ? `\n\nNota del usuario: ${extraNote}` : '');
   try {
     let content = user;
@@ -337,7 +339,7 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
         { type: 'text', text: user + '\n\nAdjunto una captura de mi pantalla. Si muestra una pregunta, ejercicio de código o problema, resuélvelo como si lo dijera yo: en el bloque en inglés da el enfoque y, si hace falta, el código corto; en el bloque ES explica en español.' },
       ];
     }
-    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 350 })) {
+    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 480 })) {
       e.sender.send('ask:chunk', { id, chunk });
     }
     e.sender.send('ask:done', { id });

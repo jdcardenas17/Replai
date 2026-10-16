@@ -87,6 +87,9 @@ function flushUtterance() {
   S.buf = '';
   if (!text) return;
   S.transcript.push(text);
+  // "Turno" = todo lo que dice el otro seguido; tras >8 s de silencio empieza un turno nuevo
+  if (Date.now() - (S.lastUtter || 0) > 8000) S.pending = '';
+  S.lastUtter = Date.now();
   S.pending = (S.pending + ' ' + text).trim();
   renderHeard();
   if (!S.auto) return;
@@ -94,7 +97,7 @@ function flushUtterance() {
   // Si terminó con "?" respondemos de inmediato; si no, esperamos un instante por si sigue hablando
   const delay = /[?]\s*$/.test(S.pending) ? 0 : 450;
   S.timer = setTimeout(() => {
-    const q = S.pending; S.pending = '';
+    const q = S.pending;   // se conserva: si siguen hablando, la siguiente respuesta cubre todo el turno
     if (q.split(/\s+/).length >= 3) ask(q);
   }, delay);
 }
@@ -202,8 +205,8 @@ function submitManual() {
 }
 function answerNow() {
   clearTimeout(S.timer);
-  const q = (S.pending + ' ' + S.buf).trim() || S.transcript.slice(-2).join(' ');
-  S.pending = ''; S.buf = '';
+  const q = (S.pending + ' ' + S.buf).trim() || S.transcript.slice(-3).join(' ');
+  S.buf = '';
   ask(q);
 }
 api.onAnswerNow(answerNow);
