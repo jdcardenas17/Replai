@@ -40,12 +40,18 @@ function ask(question, note, withScreen) {
   if (!q && !S.transcript.length && !withScreen) return;
   const id = ++S.askId;
   S.curQ = q || (withScreen ? '📷 Captura de pantalla' : S.transcript.slice(-1)[0] || '');
-  S.raw = '';
+  S.raw = ''; S.qsum = '';
   $('answerLabel').textContent = 'Pensando…';
   setStatus('Pensando…', 'busy');
   api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen });
 }
-const parseAnswer = raw => { const [en, es] = raw.split('---ES---'); return { en: (en || '').trim(), es: (es || '').trim() }; };
+function parseAnswer(raw, final = false) {
+  let q = '', rest = raw;
+  if (raw.includes('---EN---')) { const i = raw.indexOf('---EN---'); q = raw.slice(0, i); rest = raw.slice(i + 8); }
+  else if (!final) { return { q: raw.trim(), en: '', es: '' }; }      // aún llega el resumen
+  const [en, es] = rest.split('---ES---');
+  return { q: q.trim(), en: (en || '').trim(), es: (es || '').trim() };
+}
 const idleStatus = () => setStatus(S.listening ? 'Escuchando' : 'Listo', S.listening ? 'on' : '');
 
 api.onChunk(({ id, chunk }) => {
@@ -53,7 +59,8 @@ api.onChunk(({ id, chunk }) => {
   S.raw += chunk;
   const t = S.raw.trim();
   if ('[NO_RESPONSE]'.startsWith(t) || t.startsWith('[NO_RESPONSE]')) return;
-  const { en, es } = parseAnswer(S.raw);
+  const { q, en, es } = parseAnswer(S.raw);
+  S.qsum = q;
   showAnswer(en, es);
   $('answerLabel').textContent = 'Respuesta sugerida';
 });
@@ -61,8 +68,10 @@ api.onDone(({ id }) => {
   if (id !== S.askId) return;
   idleStatus();
   if (S.raw.trim().startsWith('[NO_RESPONSE]')) { $('answerLabel').textContent = 'Respuesta sugerida · lo último no necesitaba respuesta'; return; }
-  const { en, es } = parseAnswer(S.raw);
-  S.qa.push({ q: S.curQ, en, es, a: en });
+  const { q, en, es } = parseAnswer(S.raw, true);
+  S.qsum = q;
+  if (!S.raw.includes('---EN---')) showAnswer(en, es);
+  S.qa.push({ q: q || S.curQ, en, es, a: en });
   renderHistory();
 });
 api.onError(({ id, error }) => {
@@ -82,15 +91,17 @@ function flushUtterance() {
   renderHeard();
   if (!S.auto) return;
   clearTimeout(S.timer);
+  // Si terminó con "?" respondemos de inmediato; si no, esperamos un instante por si sigue hablando
+  const delay = /[?]\s*$/.test(S.pending) ? 0 : 450;
   S.timer = setTimeout(() => {
     const q = S.pending; S.pending = '';
     if (q.split(/\s+/).length >= 3) ask(q);
-  }, 900);
+  }, delay);
 }
 
 function connectDeepgram() {
   const url = 'wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true&punctuate=true' +
-    '&interim_results=true&endpointing=600&utterance_end_ms=1500&vad_events=true';
+    '&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true';
   const ws = new WebSocket(url, ['token', S.cfg.deepgramKey]);
   S.ws = ws;
   ws.onopen = () => {
@@ -98,7 +109,7 @@ function connectDeepgram() {
     setStatus('Escuchando', 'on');
     S.rec = new MediaRecorder(S.stream, { mimeType: 'audio/webm;codecs=opus' });
     S.rec.ondataavailable = e => { if (e.data.size && ws.readyState === 1) ws.send(e.data); };
-    S.rec.start(250);
+    S.rec.start(100);
   };
   ws.onmessage = ev => {
     let m; try { m = JSON.parse(ev.data); } catch { return; }
@@ -295,7 +306,7 @@ setInterval(() => {
   const s = {
     listening: S.listening, auto: S.auto, startedAt: S.startedAt,
     status: $('status').textContent, dotCls: $('dot').className.replace('dot', '').trim(),
-    label: $('answerLabel').textContent, en: $('en').textContent, es: $('es').textContent,
+    qsum: S.qsum || '', label: $('answerLabel').textContent, en: $('en').textContent, es: $('es').textContent,
     heard: S.transcript.slice(-4).concat($('heardText').querySelector('.interim')?.textContent || []).join('\n').slice(-600),
     fs: S.cfg.fontSize || 22,
   };

@@ -13,6 +13,8 @@ function render() {
   $('label').textContent = st.label || '';
   $('en').textContent = st.en || 'Pulsa ▶ en el panel o Ctrl+Alt+L para empezar.';
   $('es').textContent = st.es || '';
+  $('qsum').textContent = st.qsum ? '📝 ' + st.qsum : '';
+  $('qsum').style.display = st.qsum ? '' : 'none';
   $('heard').textContent = st.heard || '';
   $('heardBox').style.display = st.heard ? '' : 'none';
   $('heard').scrollTop = 1e6;

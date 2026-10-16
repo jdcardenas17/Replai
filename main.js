@@ -55,7 +55,7 @@ const meetingsDir = () => {
 const DEFAULT_CFG = {
   anthropicKey: '',
   deepgramKey: '',
-  model: 'claude-sonnet-5-5',
+  model: 'claude-haiku-5-5',   // el más rápido: lo importante en vivo es la velocidad
   auto: true,
   opacity: 0.95,
   wizardDone: false,
@@ -73,6 +73,7 @@ function readCfg() {
   let raw = {};
   try { raw = JSON.parse(fs.readFileSync(cfgPath(), 'utf8')); } catch {}
   const cfg = { ...DEFAULT_CFG, ...raw };
+  if (!raw.speedV2) { cfg.model = DEFAULT_CFG.model; cfg.speedV2 = true; }   // migración única: pasa a modelo rápido
   for (const k of SECRET_FIELDS) {
     if (raw[k] && raw[k].startsWith('enc:')) {
       try { cfg[k] = safeStorage.decryptString(Buffer.from(raw[k].slice(4), 'base64')); } catch { cfg[k] = ''; }
@@ -290,16 +291,19 @@ function buildSystem({ profile, meeting, others, userName }) {
 
 REGLAS:
 - Responde exactamente a lo que se pregunta. Conciso y concreto: normalmente 1-3 frases (máx. ~60 palabras). Si la pregunta es técnica profunda, hasta 5 frases.
-- Inglés simple, natural y fácil de leer en voz alta (nivel B1). Evita palabras difíciles de pronunciar.
+- Suena como una PERSONA real hablando en una reunión, no como un traductor ni un texto escrito: tono relajado y seguro, contracciones (I'm, I've, that's, we're), frases cortas, vocabulario cotidiano. Evita fórmulas rebuscadas o corporativas ("I would be delighted to", "Certainly"). Puedes abrir con una muletilla natural y breve cuando encaje ("Yeah,", "Sure,", "So,", "Honestly,", "Good question,"). Nada de listas ni viñetas. No repitas la pregunta de vuelta. Fácil de leer en voz alta, sin palabras difíciles de pronunciar.
+- La traducción al español también debe sonar natural y coloquial, no literal.
 - Basa todo en su hoja de vida, el contexto de la reunión y la memoria de reuniones pasadas. NO inventes empresas, cifras, títulos ni experiencias que no estén ahí. Si no hay dato, da una respuesta honesta y genérica de buen criterio técnico, o una frase puente ("Let me think... in my experience...") y sugiere algo verosímil sin afirmar hechos falsos.
 - En reuniones diarias (daily/standup): si preguntan qué hiciste ayer/hoy/bloqueos, usa la memoria de reuniones pasadas y el contexto actual.
 - Si lo último dicho NO requiere respuesta del usuario (saludo ya respondido, comentario de otra persona, explicación sin pregunta), responde únicamente: [NO_RESPONSE]
 - Si no entendiste o la transcripción es confusa, sugiere pedir que repitan: "Sorry, could you repeat that, please?"
 
-FORMATO ESTRICTO (sin nada más):
-<respuesta en inglés>
+FORMATO ESTRICTO (sin nada más, en este orden):
+<resumen en UNA frase corta en español de lo que te preguntaron o dijeron, p. ej. "Te preguntan si puedes trabajar en horario de EE. UU., 9am–5pm ET">
+---EN---
+<respuesta en inglés, lo que el usuario dice en voz alta>
 ---ES---
-<traducción al español de la respuesta, para que el usuario entienda lo que va a decir>`;
+<traducción natural al español de esa respuesta>`;
 
   const parts = [rules];
   parts.push(`\n\n=== HOJA DE VIDA / PERFIL DEL USUARIO ===\n${profile?.trim() || '(no cargada)'}`);
@@ -333,7 +337,7 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
         { type: 'text', text: user + '\n\nAdjunto una captura de mi pantalla. Si muestra una pregunta, ejercicio de código o problema, resuélvelo como si lo dijera yo: en el bloque en inglés da el enfoque y, si hace falta, el código corto; en el bloque ES explica en español.' },
       ];
     }
-    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 500 })) {
+    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 350 })) {
       e.sender.send('ask:chunk', { id, chunk });
     }
     e.sender.send('ask:done', { id });
