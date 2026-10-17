@@ -268,6 +268,10 @@ async function* streamClaude(args) {
       throw new Retryable('respuesta vacía');
     } catch (err) {
       clearTimeout(timer);
+      // Si el modelo rechaza los ajustes de velocidad, reintenta una vez sin ellos
+      if (!args.noTune && !got && /Claude 400/.test(String(err.message)) && /thinking|effort|output_config/i.test(String(err.message))) {
+        args = { ...args, noTune: true }; attempt--; continue;
+      }
       const transient = err instanceof Retryable || err.name === 'AbortError' || /fetch failed|network|terminated|ECONN|ETIMEDOUT/i.test(String(err.message));
       if (got || !transient || attempt === 2) {
         throw err.name === 'AbortError' ? new Error('Claude tardó demasiado en responder. Pulsa Responder otra vez.') : err;
@@ -277,7 +281,14 @@ async function* streamClaude(args) {
   }
 }
 
-async function* streamClaudeOnce({ key, model, system, messages, maxTokens }, signal, kick) {
+// Baja latencia: sin "pensar" largo (esos tokens se comen el límite de la respuesta y dejaban el texto vacío)
+function tuning(model) {
+  if (/haiku-5-5/.test(model)) return { thinking: { type: 'disabled' }, output_config: { effort: 'low' } };
+  if (/sonnet-5-5/.test(model)) return { thinking: { type: 'between_tools' }, output_config: { effort: 'low' } };
+  return { output_config: { effort: 'low' } };
+}
+
+async function* streamClaudeOnce({ key, model, system, messages, maxTokens, noTune }, signal, kick) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     signal,
     method: 'POST',
@@ -285,7 +296,7 @@ async function* streamClaudeOnce({ key, model, system, messages, maxTokens }, si
       'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
       ...(readCfg().workspaceId ? { 'anthropic-workspace-id': readCfg().workspaceId.trim() } : {}),
     },
-    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, stream: true }),
+    body: JSON.stringify({ model, max_tokens: maxTokens, system, messages, stream: true, ...(noTune ? {} : tuning(model)) }),
   });
   if (!res.ok) {
     const body = await res.text();
