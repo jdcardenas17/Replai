@@ -1,6 +1,6 @@
 {
   "name": "replai",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Replai: copiloto de reuniones en inglés. Escucha, sugiere respuestas y recuerda contexto. Invisible al compartir pantalla.",
   "main": "main.js",
   "scripts": {
