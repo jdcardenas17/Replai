@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld('api', {
   onAnswerNow: fn => on('ui:answer-now', fn),
   onToggleListen: fn => on('ui:toggle-listen', fn),
   onClickThrough: fn => on('ui:clickthrough', fn),
+  licenseGet: () => ipcRenderer.invoke('license:get'),
+  licenseSet: k => ipcRenderer.invoke('license:set', k),
+  onLicense: fn => on('license:status', fn),
   onGoto: fn => on('ui:goto', fn),
   // Leer y responder
   readRun: p => ipcRenderer.invoke('read:run', p),

@@ -26,11 +26,56 @@ let hidden = false;
   } catch {}
 })();
 
-// ---------- Actualizaciones automáticas (GitHub Releases) ----------
-function setupUpdater() {
+// ---------- Licencia (suscripción en sitiorapido.lat) ----------
+const LIC_BASE = 'https://sitiorapido.lat/api/replai';
+let licensed = false, licReason = 'nokey', licChecked = false;
+const DEV_BYPASS = !app.isPackaged && process.env.REPLAI_DEV === '1';   // solo para desarrollo, nunca en la app instalada
+
+async function checkLicense() {
+  if (DEV_BYPASS) { licensed = true; return notifyLicense(); }
+  const cfg = readCfg();
+  if (!cfg.deviceId) { cfg.deviceId = require('crypto').randomUUID(); writeCfg(cfg); }
+  if (!cfg.licenseKey) { licensed = false; licReason = 'nokey'; return notifyLicense(); }
+  try {
+    const res = await fetch(LIC_BASE + '/license', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ key: cfg.licenseKey, device: cfg.deviceId }),
+    });
+    const d = await res.json();
+    licensed = Boolean(d.ok); licReason = d.ok ? '' : d.reason || 'invalid';
+    if (d.ok) { const c = readCfg(); c.licenseOkAt = Date.now(); writeCfg(c); }
+  } catch {
+    // sin internet: se permite seguir hasta 72 h desde la última verificación
+    licensed = Date.now() - (cfg.licenseOkAt || 0) < 72 * 3600 * 1000; licReason = licensed ? '' : 'offline';
+  }
+  return notifyLicense();
+}
+function notifyLicense() {
+  licChecked = true;
+  const st = { ok: licensed, reason: licReason };
+  win?.webContents.send('license:status', st);
+  return st;
+}
+ipcMain.handle('license:get', () => ({ ok: licensed, reason: licReason, pending: !licChecked, hasKey: Boolean(readCfg().licenseKey) }));
+ipcMain.handle('license:set', async (_e, key) => {
+  const c = readCfg(); c.licenseKey = String(key || '').trim().toUpperCase(); writeCfg(c);
+  const st = await checkLicense();
+  if (st.ok) setupUpdater(true);
+  return st;
+});
+
+// ---------- Actualizaciones automáticas (desde sitiorapido.lat, solo con licencia) ----------
+let updaterStarted = false;
+function setupUpdater(force) {
   if (!app.isPackaged) return;
+  const cfg = readCfg();
+  if (!cfg.licenseKey || (updaterStarted && !force)) return;
   try {
     const { autoUpdater } = require('electron-updater');
+    autoUpdater.setFeedURL({ provider: 'generic', url: LIC_BASE + '/updates' });
+    autoUpdater.requestHeaders = { 'x-replai-key': cfg.licenseKey, 'x-replai-device': cfg.deviceId };
+    if (updaterStarted) { autoUpdater.checkForUpdates().catch(() => {}); return; }
+    updaterStarted = true;
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.on('update-available', i => win?.webContents.send('update:status', { state: 'downloading', version: i.version }));
@@ -59,6 +104,9 @@ const DEFAULT_CFG = {
   auto: false,
   opacity: 0.95,
   wizardDone: false,
+  licenseKey: '',
+  deviceId: '',
+  licenseOkAt: 0,
   workspaceId: '',
   hudOpacity: 0.9,
   hudBounds: null,
@@ -67,7 +115,7 @@ const DEFAULT_CFG = {
   lastMeeting: null,
   bounds: null,
 };
-const SECRET_FIELDS = ['anthropicKey', 'deepgramKey'];
+const SECRET_FIELDS = ['anthropicKey', 'deepgramKey', 'licenseKey'];
 
 function readCfg() {
   let raw = {};
@@ -188,12 +236,13 @@ app.whenReady().then(() => {
 
   createWindow();
   createHud();
-  setupUpdater();
+  checkLicense().then(() => setupUpdater());
+  setInterval(() => checkLicense(), 6 * 3600 * 1000);
 
   const feats = require('./features')({
     ipcMain, screen, desktopCapturer, dialog, app, readCfg, streamClaude,
     getProfile: () => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } },
-    getWin: () => win,
+    getWin: () => win, isLicensed: () => licensed,
     showControl: () => { win.show(); win.focus(); },
   });
   const goto = name => { win.show(); win.focus(); win.webContents.send('ui:goto', name); };
@@ -260,7 +309,7 @@ ipcMain.handle('meetings:save', (_e, m) => {
   return saveMeeting(m);
 });
 ipcMain.handle('meetings:delete', (_e, id) => { try { fs.unlinkSync(path.join(meetingsDir(), id + '.json')); } catch {} return true; });
-ipcMain.handle('app:open', (_e, url) => { if (/^https:\/\/console\.(anthropic|deepgram)\.com\//.test(url)) shell.openExternal(url); });
+ipcMain.handle('app:open', (_e, url) => { if (/^https:\/\/(console\.(anthropic|deepgram)\.com|(www\.)?sitiorapido\.lat)\//.test(url)) shell.openExternal(url); });
 ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('app:minimize', () => win.hide());
 
@@ -389,6 +438,7 @@ FORMATO ESTRICTO (sin nada más, en este orden):
 
 ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force }) => {
   const cfg = readCfg();
+  if (!licensed) { e.sender.send('ask:error', { id, error: 'Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai' }); return; }
   if (!cfg.anthropicKey) { e.sender.send('ask:error', { id, error: 'Falta la clave de Anthropic (⚙ Ajustes).' }); return; }
   const profile = (() => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } })();
   const all = listMeetings();

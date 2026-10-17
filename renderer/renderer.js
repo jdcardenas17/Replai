@@ -312,6 +312,38 @@ api.onUpdate(u => {
 });
 $('btnUpdate').onclick = () => api.installUpdate();
 
+// ---------- Licencia ----------
+const LIC_TXT = {
+  nokey: 'Pega tu clave de licencia para empezar. La recibes al suscribirte (USD 20/mes).',
+  invalid: 'Esa clave no es válida. Revísala e inténtalo de nuevo.',
+  inactive: 'Tu suscripción no está activa. Renuévala en PayPal o suscríbete de nuevo.',
+  revoked: 'Esta licencia fue desactivada. Escríbenos por WhatsApp.',
+  devices: 'Esta licencia ya se usa en 2 computadores. Escríbenos si cambiaste de equipo.',
+  offline: 'No pudimos verificar tu licencia (sin internet por más de 72 h). Conéctate para continuar.',
+};
+function applyLicense(st) {
+  if (st.pending) return;
+  const wall = $('licWall');
+  if (st.ok) { wall.classList.add('hidden'); return; }
+  if (S.listening) stopListening();
+  $('licMsg').textContent = LIC_TXT[st.reason] || LIC_TXT.nokey;
+  wall.classList.remove('hidden');
+  api.controlShow();
+}
+api.onLicense(applyLicense);
+$('licGo').onclick = async () => {
+  const k = $('licKeyIn').value.trim();
+  if (!k) { $('licKeyIn').focus(); return; }
+  $('licGo').textContent = 'Verificando…';
+  const st = await api.licenseSet(k);
+  $('licGo').textContent = 'Activar';
+  applyLicense(st);
+};
+$('licKeyIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('licGo').click(); });
+$('licBuy').onclick = () => api.openExternal('https://sitiorapido.lat/replai.html#comprar');
+$('licRecover').onclick = () => api.openExternal('https://sitiorapido.lat/replai.html#descargar');
+api.licenseGet().then(applyLicense);
+
 // ---------- HUD flotante ----------
 let lastHud = '';
 setInterval(() => {

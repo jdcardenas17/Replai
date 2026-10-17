@@ -4,7 +4,7 @@ const fs = require('fs');
 const { BrowserWindow, nativeImage } = require('electron');
 
 module.exports = function register(ctx) {
-  const { ipcMain, screen, desktopCapturer, dialog, app, readCfg, getProfile, streamClaude, getWin, showControl } = ctx;
+  const { ipcMain, screen, desktopCapturer, dialog, app, readCfg, getProfile, streamClaude, getWin, showControl, isLicensed } = ctx;
   const file = n => path.join(app.getPath('userData'), n);
   const readJson = (n, d) => { try { return JSON.parse(fs.readFileSync(file(n), 'utf8')); } catch { return d; } };
   const writeJson = (n, v) => fs.writeFileSync(file(n), JSON.stringify(v, null, 2));
@@ -27,6 +27,7 @@ REGLAS COMUNES:
   };
   function need() {
     const cfg = readCfg();
+    if (!isLicensed()) throw new Error('Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai');
     if (!cfg.anthropicKey) throw new Error('Falta la clave de Claude (Ajustes).');
     return cfg;
   }
