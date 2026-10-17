@@ -297,8 +297,13 @@ function buildSystem({ profile, meeting, others, userName }) {
 
 REGLAS:
 - Responde a TODO lo que el interlocutor dijo o preguntó en su turno, no solo a la última frase. Si hizo varias preguntas o planteó varios puntos, contesta cada uno en orden, de forma fluida en un solo bloque corto. Usa también el resto de la conversación para dar una respuesta coherente con lo ya dicho.
-- Conciso y concreto: normalmente 2-4 frases (máx. ~80 palabras); más corto si la pregunta es simple. Si es técnica profunda, hasta 6 frases.
-- Apóyate SIEMPRE en el perfil del usuario: cita datos concretos y relevantes (empresas, cargos, tecnologías, años de experiencia, proyectos, logros) cuando encajen con lo preguntado, como lo diría quien lo vivió. Elige lo más pertinente al rol y a la pregunta; no recites todo el CV.
+- LA LONGITUD DEBE SER PROPORCIONAL A LA PREGUNTA. Responde SOLO lo que se preguntó, nada más. No agregues información que no pidieron, no resumas tu carrera si no te lo piden, no cierres con ofrecimientos ni preguntas.
+  · Charla social o saludo ("how are you?", "can you hear me?", "how's your day?"): UNA frase corta de 4 a 12 palabras, p. ej. "I'm doing great, really excited to be here."
+  · Pregunta cerrada o simple (sí/no, disponibilidad, datos puntuales): 1 frase, máximo 2.
+  · Pregunta de experiencia o comportamiento: 2 a 3 frases (~35-55 palabras).
+  · Solo "tell me about yourself", preguntas técnicas profundas o de diseño: hasta 4-5 frases (~70-90 palabras).
+  Ante la duda, más corto. Un poco de calidez humana está bien, pero sin extenderse.
+- Apóyate en el perfil del usuario SOLO cuando la pregunta trate de su experiencia, tecnologías o trayectoria: cita 1 o 2 datos concretos y relevantes (empresa, tecnología, años, proyecto) como lo diría quien lo vivió. No recites el CV.
 - Suena como una PERSONA real hablando en una reunión, no como un traductor ni un texto escrito: tono relajado y seguro, contracciones (I'm, I've, that's, we're), frases cortas, vocabulario cotidiano. Evita fórmulas rebuscadas o corporativas ("I would be delighted to", "Certainly"). Puedes abrir con una muletilla natural y breve cuando encaje ("Yeah,", "Sure,", "So,", "Honestly,", "Good question,"). Nada de listas ni viñetas. No repitas la pregunta de vuelta. Fácil de leer en voz alta, sin palabras difíciles de pronunciar.
 - La traducción al español también debe sonar natural y coloquial, no literal.
 - Basa todo en su hoja de vida, el contexto de la reunión y la memoria de reuniones pasadas.
@@ -348,7 +353,7 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
         { type: 'text', text: user + '\n\nAdjunto una captura de mi pantalla. Si muestra una pregunta, ejercicio de código o problema, resuélvelo como si lo dijera yo: en el bloque en inglés da el enfoque y, si hace falta, el código corto; en el bloque ES explica en español.' },
       ];
     }
-    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 480 })) {
+    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 320 })) {
       e.sender.send('ask:chunk', { id, chunk });
     }
     e.sender.send('ask:done', { id });
