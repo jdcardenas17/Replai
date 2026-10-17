@@ -140,8 +140,12 @@
   <section id="v-read" class="view">
     <div class="pad">
       <div class="label">1 · Qué leíste</div>
-      <textarea id="rText" rows="5" placeholder="Pega o escribe aquí el texto en inglés (correo, chat, oferta, pregunta)…  También puedes pegar una imagen con Ctrl+V."></textarea>
+      <textarea id="rText" rows="5" placeholder="Pulsa 🎤 y lee en voz alta lo que ves en inglés: Replai te escucha y lo escribe aquí. (También puedes pegar texto o una imagen con Ctrl+V.)"></textarea>
       <div id="rImgBox" class="img-box hidden"><img id="rImg"><button id="rImgX" class="ghost">Quitar imagen</button></div>
+      <div class="row wrap">
+        <button id="rMic" class="mic primary" title="Lee el texto en voz alta y Replai te escucha">🎤 Leer en voz alta <kbd>Ctrl+M</kbd></button>
+        <span id="rMicSt" class="hint"></span>
+      </div>
       <div class="row wrap">
         <button id="rShot" title="Ctrl+Alt+S (en cualquier momento)">✂ Capturar zona de pantalla <kbd>Ctrl+Alt+S</kbd></button>
         <button id="rPick">🖼 Cargar imagen</button>

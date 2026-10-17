@@ -93,3 +93,43 @@ addEventListener('keydown', e => {
 
 api.onGoto(name => showTab(name));
 api.readHistory().then(loadReadHistory);
+
+// ---------- Leer en voz alta: Replai te escucha y transcribe ----------
+const D = { mic: null, finalText: '', base: '' };
+async function toggleDictation() { return D.mic ? stopDictation(true) : startDictation(); }
+async function startDictation() {
+  if (!S.cfg.deepgramKey) { $('rMicSt').textContent = 'Falta la clave de Deepgram (Ajustes).'; return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { $('rMicSt').textContent = 'No pude usar el micrófono. Revisa los permisos de Windows.'; return; }
+  D.base = $('rText').value.trim(); D.finalText = '';
+  setImage(null);
+  const ws = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-3&language=en&smart_format=true&punctuate=true&interim_results=true', ['token', S.cfg.deepgramKey]);
+  const rec = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+  D.mic = { ws, rec, stream };
+  const put = interim => { $('rText').value = [D.base, D.finalText.trim(), interim].filter(Boolean).join(' '); };
+  ws.onopen = () => { rec.ondataavailable = e => { if (e.data.size && ws.readyState === 1) ws.send(e.data); }; rec.start(150); };
+  ws.onmessage = ev => {
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    if (m.type !== 'Results') return;
+    const t = m.channel?.alternatives?.[0]?.transcript || '';
+    if (m.is_final) { if (t) D.finalText += t + ' '; put(''); } else put(t);
+  };
+  ws.onerror = () => { $('rMicSt').textContent = 'Error de conexión con Deepgram.'; stopDictation(false); };
+  $('rMic').classList.add('rec'); $('rMic').innerHTML = '⏹ Listo, traducir <kbd>Ctrl+M</kbd>';
+  $('rMicSt').textContent = 'Escuchando… lee el texto en voz alta';
+}
+function stopDictation(run) {
+  const m = D.mic; if (!m) return;
+  D.mic = null;
+  try { m.rec.state !== 'inactive' && m.rec.stop(); } catch {}
+  try { m.stream.getTracks().forEach(t => t.stop()); } catch {}
+  $('rMic').classList.remove('rec'); $('rMic').innerHTML = '🎤 Leer en voz alta <kbd>Ctrl+M</kbd>'; $('rMicSt').textContent = '';
+  // deja llegar los últimos resultados y luego traduce y responde solo
+  setTimeout(() => { try { m.ws.close(); } catch {} if (run && $('rText').value.trim()) runRead('initial'); }, 900);
+}
+$('rMic').onclick = toggleDictation;
+addEventListener('keydown', e => {
+  if (!$('v-read').classList.contains('active')) return;
+  if (e.ctrlKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); toggleDictation(); }
+});
