@@ -56,6 +56,7 @@ function notifyLicense() {
   win?.webContents.send('license:status', st);
   return st;
 }
+ipcMain.handle('license:creds', () => { const c = readCfg(); return { key: c.licenseKey, device: c.deviceId }; });
 ipcMain.handle('license:get', () => ({ ok: licensed, reason: licReason, pending: !licChecked, hasKey: Boolean(readCfg().licenseKey) }));
 ipcMain.handle('license:set', async (_e, key) => {
   const c = readCfg(); c.licenseKey = String(key || '').trim().toUpperCase(); writeCfg(c);
@@ -351,10 +352,12 @@ function tuning(model) {
 }
 
 async function* streamClaudeOnce({ key, model, system, messages, maxTokens, noTune }, signal, kick) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const managed = !key;           // sin clave propia: IA incluida en la suscripción (pasa por el servidor)
+  const cfgM = readCfg();
+  const res = await fetch(managed ? LIC_BASE + '/claude' : 'https://api.anthropic.com/v1/messages', {
     signal,
     method: 'POST',
-    headers: {
+    headers: managed ? { 'content-type': 'application/json', 'x-replai-key': cfgM.licenseKey, 'x-replai-device': cfgM.deviceId } : {
       'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
       ...(readCfg().workspaceId ? { 'anthropic-workspace-id': readCfg().workspaceId.trim() } : {}),
     },
@@ -368,6 +371,8 @@ async function* streamClaudeOnce({ key, model, system, messages, maxTokens, noTu
     if (/workspace/i.test(msg)) hint = 'Tu clave no está ligada a un workspace. Solución fácil: en console.anthropic.com → Settings → API Keys, crea una clave nueva eligiendo el workspace "Default" y pégala en Ajustes. O pega el ID del workspace en Ajustes → ID de workspace.';
     else if (/credit balance/i.test(msg)) hint = 'Tu cuenta de Anthropic no tiene saldo. Entra a console.anthropic.com → Plans & Billing y compra créditos (con USD 5 alcanza para empezar).';
     else if (/model/i.test(msg)) hint = 'El modelo elegido no está disponible para tu cuenta. Cámbialo en Ajustes → Velocidad / calidad.';
+    else if (res.status === 403 && managed) hint = 'Tu licencia de Replai no está activa. Renueva tu suscripción en sitiorapido.lat/replai';
+    else if (res.status === 429 && managed) hint = msg;
     else if (res.status === 401) hint = 'La clave de Claude es incorrecta. Revísala en Ajustes.';
     if ([429, 500, 502, 503, 504, 529].includes(res.status)) throw new Retryable(`Claude ${res.status}: ${msg}`);
     throw new Error(`${hint ? hint + '\n\n' : ''}(Claude ${res.status}: ${msg})`);
@@ -439,7 +444,7 @@ FORMATO ESTRICTO (sin nada más, en este orden):
 ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force }) => {
   const cfg = readCfg();
   if (!licensed) { e.sender.send('ask:error', { id, error: 'Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai' }); return; }
-  if (!cfg.anthropicKey) { e.sender.send('ask:error', { id, error: 'Falta la clave de Anthropic (⚙ Ajustes).' }); return; }
+  if (!cfg.anthropicKey && !licensed) { e.sender.send('ask:error', { id, error: 'Falta la clave de Anthropic (⚙ Ajustes).' }); return; }
   const profile = (() => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } })();
   const all = listMeetings();
   const meeting = all.find(m => m.id === meetingId);
@@ -472,7 +477,7 @@ ipcMain.handle('summarize', async (_e, { meetingId, transcript, qa }) => {
   const cfg = readCfg();
   const meeting = listMeetings().find(m => m.id === meetingId);
   if (!meeting) return { error: 'Reunión no encontrada' };
-  if (!cfg.anthropicKey) return { error: 'Falta la clave de Anthropic' };
+  if (!cfg.anthropicKey && !licensed) return { error: 'Falta la clave de Anthropic' };
   if (!transcript?.length) return { memory: meeting.memory };
   const sys = 'Mantienes la memoria de una reunión recurrente para un asistente. Escribe en español, con viñetas cortas. Conserva lo relevante de la memoria previa y fusiona lo nuevo. Máx. ~350 palabras.';
   const user = `MEMORIA PREVIA:\n${meeting.memory || '(ninguna)'}\n\nTRANSCRIPCIÓN DE HOY:\n${transcript.slice(-200).join('\n')}\n\nRESPUESTAS SUGERIDAS/DADAS HOY:\n${(qa || []).map(x => `P: ${x.q}\nR: ${x.a}`).join('\n').slice(0, 6000)}\n\nDevuelve la memoria actualizada con secciones: Temas y decisiones, Tareas/pendientes, Lo que dije/prometí, Términos técnicos y nombres de personas, Estilo/preguntas frecuentes del entrevistador.`;

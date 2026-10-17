@@ -28,7 +28,7 @@ REGLAS COMUNES:
   function need() {
     const cfg = readCfg();
     if (!isLicensed()) throw new Error('Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai');
-    if (!cfg.anthropicKey) throw new Error('Falta la clave de Claude (Ajustes).');
+    if (!cfg.anthropicKey && !isLicensed()) throw new Error('Falta la clave de Claude (Ajustes).');
     return cfg;
   }
   async function stream(e, prefix, id, args) {

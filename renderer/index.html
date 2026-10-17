@@ -104,11 +104,11 @@
     <div class="pad">
       <label>Tu nombre</label>
       <input id="userName">
-      <label>Clave de Claude (Anthropic) <a href="#" data-open="https://console.anthropic.com/settings/keys">obtener</a></label>
+      <label>Clave de Claude (opcional: si la dejas vacía se usa la IA incluida en tu suscripción)</label>
       <input id="anthropicKey" type="password" placeholder="sk-ant-…">
       <label>ID de workspace de Anthropic <small>(solo si tu clave da error de "workspace")</small></label>
       <input id="workspaceId" placeholder="wrkspc_…">
-      <label>Clave de Deepgram (transcripción) <a href="#" data-open="https://console.deepgram.com/signup">obtener</a></label>
+      <label>Clave de Deepgram (opcional: si la dejas vacía se usa la transcripción incluida)</label>
       <input id="deepgramKey" type="password">
       <label>Velocidad / calidad</label>
       <select id="model">
@@ -237,12 +237,13 @@
       <div class="steps"><i class="on"></i><i></i><i></i></div>
 
       <div class="wstep" data-step="1">
-        <h2>¡Bienvenido, Juan! 👋</h2>
-        <p>Replai escucha tus reuniones en inglés y te dice qué responder, con traducción al español. Primero necesitamos dos claves gratuitas o de bajo costo.</p>
-        <label>Clave de Claude (Anthropic) <a href="#" data-open="https://console.anthropic.com/settings/keys">obtener</a></label>
+        <h2>¡Bienvenido! 👋</h2>
+        <p>Replai escucha tus reuniones en inglés y te dice qué responder, con traducción al español. Tu suscripción ya incluye la IA y la transcripción: no necesitas claves.</p>
+        <details style="margin:8px 0"><summary class="hint" style="cursor:pointer">Usar mis propias claves (opcional)</summary>
+        <label>Clave de Claude (Anthropic)</label>
         <input id="wAnthropic" type="password" placeholder="sk-ant-…">
-        <label>Clave de Deepgram <a href="#" data-open="https://console.deepgram.com/signup">obtener</a></label>
-        <input id="wDeepgram" type="password">
+        <label>Clave de Deepgram</label>
+        <input id="wDeepgram" type="password"></details>
         <label>¿Cómo te llamas?</label>
         <input id="wName">
       </div>

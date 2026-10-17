@@ -98,13 +98,13 @@ api.readHistory().then(loadReadHistory);
 const D = { mic: null, finalText: '', base: '' };
 async function toggleDictation() { return D.mic ? stopDictation(true) : startDictation(); }
 async function startDictation() {
-  if (!S.cfg.deepgramKey) { $('rMicSt').textContent = 'Falta la clave de Deepgram (Ajustes).'; return; }
+  if (!S.cfg.deepgramKey && !S.licOk) { $('rMicSt').textContent = 'Falta la clave de Deepgram (Ajustes).'; return; }
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
   catch { $('rMicSt').textContent = 'No pude usar el micrófono. Revisa los permisos de Windows.'; return; }
   D.base = $('rText').value.trim(); D.finalText = '';
   setImage(null);
-  const ws = new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-3&language=en&smart_format=true&punctuate=true&interim_results=true', ['token', S.cfg.deepgramKey]);
+  const ws = dgSocket('language=en&smart_format=true&punctuate=true&interim_results=true');
   const rec = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
   D.mic = { ws, rec, stream };
   const put = interim => { $('rText').value = [D.base, D.finalText.trim(), interim].filter(Boolean).join(' '); };

@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('api', {
   onAnswerNow: fn => on('ui:answer-now', fn),
   onToggleListen: fn => on('ui:toggle-listen', fn),
   onClickThrough: fn => on('ui:clickthrough', fn),
+  licenseCreds: () => ipcRenderer.invoke('license:creds'),
   licenseGet: () => ipcRenderer.invoke('license:get'),
   licenseSet: k => ipcRenderer.invoke('license:set', k),
   onLicense: fn => on('license:status', fn),

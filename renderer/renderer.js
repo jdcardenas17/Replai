@@ -103,10 +103,15 @@ function flushUtterance() {
   }, delay);
 }
 
+// Transcripción: con clave propia va directo a Deepgram; si no, usa la incluida en la suscripción (vía sitiorapido.lat)
+function dgSocket(query) {
+  if (S.cfg.deepgramKey) return new WebSocket('wss://api.deepgram.com/v1/listen?model=nova-3&' + query, ['token', S.cfg.deepgramKey]);
+  return new WebSocket('wss://sitiorapido.lat/api/replai/stt?' + query, ['replai', S.lic?.key || '', S.lic?.device || '']);
+}
+const hasAI = () => Boolean((S.cfg.deepgramKey && S.cfg.anthropicKey) || S.licOk);
+
 function connectDeepgram() {
-  const url = 'wss://api.deepgram.com/v1/listen?model=nova-3&language=en&smart_format=true&punctuate=true' +
-    '&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true';
-  const ws = new WebSocket(url, ['token', S.cfg.deepgramKey]);
+  const ws = dgSocket('language=en&smart_format=true&punctuate=true&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true');
   S.ws = ws;
   ws.onopen = () => {
     S.retry = 0;
@@ -135,7 +140,7 @@ function connectDeepgram() {
 }
 
 async function startListening() {
-  if (!S.cfg.deepgramKey || !S.cfg.anthropicKey) { showTab('settings'); setStatus('Faltan las claves'); return; }
+  if (!hasAI()) { showTab('settings'); setStatus('Faltan las claves'); return; }
   await saveMeetingFromForm();
   try {
     const st = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -274,8 +279,7 @@ $('wBack').onclick = () => { wStep--; wizShow(); };
 $('wImport').onclick = async () => { const t = await api.importProfile(); if (t) $('wProfile').value = t; };
 $('wNext').onclick = async () => {
   if (wStep === 1) {
-    if (!$('wAnthropic').value.trim() || !$('wDeepgram').value.trim()) { $('wAnthropic').focus(); return; }
-    S.cfg = await api.setCfg({ anthropicKey: $('wAnthropic').value.trim(), deepgramKey: $('wDeepgram').value.trim(), userName: $('wName').value.trim() });
+    S.cfg = await api.setCfg({ userName: $('wName').value.trim(), ...($('wAnthropic').value.trim() ? { anthropicKey: $('wAnthropic').value.trim() } : {}), ...($('wDeepgram').value.trim() ? { deepgramKey: $('wDeepgram').value.trim() } : {}) });
   }
   if (wStep === 2) await api.setProfile($('wProfile').value);
   if (wStep === 3) {
@@ -301,7 +305,10 @@ async function init() {
   if (!S.meetings.length) { await newMeeting('Mi primera reunión'); S.meetings = await api.listMeetings(); }
   S.meetingId = (S.meetings.find(m => m.id === S.cfg.lastMeeting) || S.meetings[0]).id;
   renderMeetingSel(); fillMeetingForm();
-  if (!S.cfg.wizardDone && !S.cfg.anthropicKey) { $('wizard').classList.remove('hidden'); wizShow(); }
+  S.ready = true; maybeWizard();
+}
+function maybeWizard() {
+  if (!S.cfg.wizardDone && S.licOk && !S.cfg.anthropicKey) { $('wizard').classList.remove('hidden'); wizShow(); }
 }
 // ---------- Actualizaciones ----------
 api.onUpdate(u => {
@@ -324,7 +331,8 @@ const LIC_TXT = {
 function applyLicense(st) {
   if (st.pending) return;
   const wall = $('licWall');
-  if (st.ok) { wall.classList.add('hidden'); return; }
+  S.licOk = Boolean(st.ok);
+  if (st.ok) { wall.classList.add('hidden'); api.licenseCreds().then(c => (S.lic = c)); if (S.ready) maybeWizard(); return; }
   if (S.listening) stopListening();
   $('licMsg').textContent = LIC_TXT[st.reason] || LIC_TXT.nokey;
   wall.classList.remove('hidden');
