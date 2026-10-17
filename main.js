@@ -252,8 +252,34 @@ ipcMain.handle('app:quit', () => app.quit());
 ipcMain.handle('app:minimize', () => win.hide());
 
 // ---------- Claude (streaming) ----------
-async function* streamClaude({ key, model, system, messages, maxTokens }) {
+class Retryable extends Error {}
+
+// Con reintentos automáticos: si Claude tarda, se satura o devuelve vacío, vuelve a intentar solo (hasta 3 veces)
+async function* streamClaude(args) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const ctrl = new AbortController();
+    let timer = setTimeout(() => ctrl.abort(), 8000);
+    const kick = () => { clearTimeout(timer); timer = setTimeout(() => ctrl.abort(), 8000); };
+    let got = false;
+    try {
+      for await (const t of streamClaudeOnce(args, ctrl.signal, kick)) { got = true; yield t; }
+      clearTimeout(timer);
+      if (got) return;
+      throw new Retryable('respuesta vacía');
+    } catch (err) {
+      clearTimeout(timer);
+      const transient = err instanceof Retryable || err.name === 'AbortError' || /fetch failed|network|terminated|ECONN|ETIMEDOUT/i.test(String(err.message));
+      if (got || !transient || attempt === 2) {
+        throw err.name === 'AbortError' ? new Error('Claude tardó demasiado en responder. Pulsa Responder otra vez.') : err;
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+  }
+}
+
+async function* streamClaudeOnce({ key, model, system, messages, maxTokens }, signal, kick) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
+    signal,
     method: 'POST',
     headers: {
       'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
@@ -270,6 +296,7 @@ async function* streamClaude({ key, model, system, messages, maxTokens }) {
     else if (/credit balance/i.test(msg)) hint = 'Tu cuenta de Anthropic no tiene saldo. Entra a console.anthropic.com → Plans & Billing y compra créditos (con USD 5 alcanza para empezar).';
     else if (/model/i.test(msg)) hint = 'El modelo elegido no está disponible para tu cuenta. Cámbialo en Ajustes → Velocidad / calidad.';
     else if (res.status === 401) hint = 'La clave de Claude es incorrecta. Revísala en Ajustes.';
+    if ([429, 500, 502, 503, 504, 529].includes(res.status)) throw new Retryable(`Claude ${res.status}: ${msg}`);
     throw new Error(`${hint ? hint + '\n\n' : ''}(Claude ${res.status}: ${msg})`);
   }
   const reader = res.body.getReader();
@@ -278,6 +305,7 @@ async function* streamClaude({ key, model, system, messages, maxTokens }) {
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
+    kick();
     buf += dec.decode(value, { stream: true });
     let i;
     while ((i = buf.indexOf('\n')) >= 0) {
@@ -286,8 +314,9 @@ async function* streamClaude({ key, model, system, messages, maxTokens }) {
       if (!line.startsWith('data:')) continue;
       try {
         const ev = JSON.parse(line.slice(5));
-        if (ev.type === 'content_block_delta' && ev.delta?.text) yield ev.delta.text;
-      } catch {}
+        if (ev.type === 'error') throw new Retryable(ev.error?.message || 'error del servidor');
+        if (ev.type === 'content_block_delta' && ev.delta?.text) { yield ev.delta.text; continue; }
+      } catch (e) { if (e instanceof Retryable) throw e; }
     }
   }
 }
@@ -300,6 +329,7 @@ REGLAS:
 - LA LONGITUD DEBE SER PROPORCIONAL A LA PREGUNTA. Responde SOLO lo que se preguntó, nada más. No agregues información que no pidieron, no resumas tu carrera si no te lo piden, no cierres con ofrecimientos ni preguntas.
   · Charla social o saludo ("how are you?", "can you hear me?", "how's your day?"): UNA frase corta de 4 a 12 palabras, p. ej. "I'm doing great, really excited to be here."
   · Pregunta cerrada o simple (sí/no, disponibilidad, datos puntuales): 1 frase, máximo 2.
+  · Pregunta abierta de motivación u opinión ("why do you want to work here?", "why this role?", "what do you like about...?"): 2 a 3 frases (~35-50 palabras) con un motivo concreto basado en la empresa/rol del contexto y un toque personal, p. ej. "I like that it's a company focused on X, and honestly, software development is my passion."
   · Pregunta de experiencia o comportamiento: 2 a 3 frases (~35-55 palabras).
   · Solo "tell me about yourself", preguntas técnicas profundas o de diseño: hasta 4-5 frases (~70-90 palabras).
   Ante la duda, más corto. Un poco de calidez humana está bien, pero sin extenderse.

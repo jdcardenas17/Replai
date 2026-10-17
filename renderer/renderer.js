@@ -67,6 +67,7 @@ api.onChunk(({ id, chunk }) => {
 api.onDone(({ id }) => {
   if (id !== S.askId) return;
   idleStatus();
+  if (!S.raw.trim()) { $('answerLabel').textContent = 'Sin respuesta · pulsa Responder otra vez'; return; }
   if (S.raw.trim().startsWith('[NO_RESPONSE]')) { $('answerLabel').textContent = 'No detecté pregunta en lo último · pulsa Responder si quieres respuesta'; return; }
   const { q, en, es } = parseAnswer(S.raw, true);
   S.qsum = q;
@@ -326,7 +327,9 @@ setInterval(() => {
 }, 150);
 
 function clearAnswer() {
-  S.askId++; S.pending = ''; S.buf = ''; S.interim = ''; S.mark = S.transcript.length;
+  // Limpiar borra también lo que se había escuchado, para que voces de fondo no se mezclen con la próxima pregunta
+  S.askId++; S.pending = ''; S.buf = ''; S.interim = ''; S.transcript = []; S.mark = 0; S.qsum = '';
+  renderHeard();
   showAnswer('', ''); $('answerLabel').textContent = 'Respuesta sugerida';
   idleStatus();
 }
