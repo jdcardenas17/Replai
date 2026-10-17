@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Captura</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; cursor: crosshair; user-select: none; }
+  #bg { position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  #dim { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); }
+  #sel { position: fixed; border: 2px solid #6c7bff; background: transparent; box-shadow: 0 0 0 99999px rgba(0, 0, 0, .45); display: none; }
+  #hint { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); background: #131724; color: #eceff8; font: 13px "Segoe UI", sans-serif; padding: 7px 14px; border-radius: 99px; border: 1px solid #323a5c; z-index: 5; }
+</style></head>
+<body>
+<img id="bg"><div id="dim"></div><div id="sel"></div>
+<div id="hint">Arrastra para seleccionar el texto · Esc para cancelar</div>
+<script>
+  const sel = document.getElementById('sel'), dim = document.getElementById('dim');
+  let sx, sy, drag = false;
+  api.regionInit().then(u => { if (u) document.getElementById('bg').src = u; });
+  addEventListener('mousedown', e => { drag = true; sx = e.clientX; sy = e.clientY; dim.style.display = 'none'; sel.style.display = 'block'; upd(e); });
+  addEventListener('mousemove', e => { if (drag) upd(e); });
+  addEventListener('mouseup', e => {
+    if (!drag) return; drag = false;
+    const r = rect(e);
+    if (r.w < 12 || r.h < 12) return api.regionCancel();
+    api.regionDone(r);
+  });
+  addEventListener('keydown', e => { if (e.key === 'Escape') api.regionCancel(); });
+  function rect(e) { return { x: Math.min(sx, e.clientX), y: Math.min(sy, e.clientY), w: Math.abs(e.clientX - sx), h: Math.abs(e.clientY - sy) }; }
+  function upd(e) { const r = rect(e); Object.assign(sel.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); }
+</script></body></html>

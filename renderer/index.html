@@ -21,12 +21,17 @@
 
   <div id="updateBar" class="update hidden"><span id="updateTxt"></span><button id="btnUpdate" class="primary">Reiniciar y actualizar</button></div>
 
+<div class="shell">
   <nav>
-    <button class="tab active" data-tab="live">En vivo</button>
-    <button class="tab" data-tab="meetings">Reuniones</button>
-    <button class="tab" data-tab="profile">Mi perfil</button>
-    <button class="tab" data-tab="settings">Ajustes</button>
+    <button class="tab active" data-tab="live"><span class="ic">🎧</span>En vivo<kbd>^⌥1</kbd></button>
+    <button class="tab" data-tab="read"><span class="ic">📖</span>Leer y responder<kbd>^⌥2</kbd></button>
+    <button class="tab" data-tab="train"><span class="ic">🎯</span>Entrenamiento<kbd>^⌥3</kbd></button>
+    <div class="nav-sep"></div>
+    <button class="tab small" data-tab="meetings"><span class="ic">🗂</span>Reuniones</button>
+    <button class="tab small" data-tab="profile"><span class="ic">👤</span>Mi perfil</button>
+    <button class="tab small" data-tab="settings"><span class="ic">⚙</span>Ajustes</button>
   </nav>
+  <div class="content">
 
   <!-- EN VIVO -->
   <section id="v-live" class="view active">
@@ -123,11 +128,90 @@
         <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Espacio</kbd> responder a lo último</div>
         <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>L</kbd> empezar / detener</div>
         <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> clic a través</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> ir a En vivo / Leer / Entrenamiento</div>
+        <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd> capturar zona de pantalla y traducir</div>
         <div><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>↑↓</kbd> transparencia</div>
         <div class="shield">🛡 Esta ventana no aparece cuando compartes pantalla: solo tú la ves.</div>
       </div>
     </div>
   </section>
+
+  <!-- LEER Y RESPONDER -->
+  <section id="v-read" class="view">
+    <div class="pad">
+      <div class="label">1 · Qué leíste</div>
+      <textarea id="rText" rows="5" placeholder="Pega o escribe aquí el texto en inglés (correo, chat, oferta, pregunta)…  También puedes pegar una imagen con Ctrl+V."></textarea>
+      <div id="rImgBox" class="img-box hidden"><img id="rImg"><button id="rImgX" class="ghost">Quitar imagen</button></div>
+      <div class="row wrap">
+        <button id="rShot" title="Ctrl+Alt+S (en cualquier momento)">✂ Capturar zona de pantalla <kbd>Ctrl+Alt+S</kbd></button>
+        <button id="rPick">🖼 Cargar imagen</button>
+        <button id="rClear" class="ghost">Borrar</button>
+      </div>
+      <input id="rNote" placeholder="Instrucción opcional: p. ej. “acepto la reunión”, “pregunta por el salario”…">
+      <button id="rGo" class="primary wide">Traducir y sugerir respuesta <kbd>Ctrl+Enter</kbd></button>
+
+      <div id="rOut" class="hidden">
+        <div class="card r-card"><div class="label">Traducción</div><div id="rEs" class="r-es"></div></div>
+        <div class="card r-card ans"><div class="label">Respuesta sugerida (inglés)</div><div id="rEn" class="r-en"></div>
+          <div class="row"><button id="rCopyEn" class="primary">Copiar</button></div></div>
+        <div class="card r-card"><div class="label">Versión alternativa</div><div id="rAlt" class="r-en small"></div>
+          <div class="row"><button id="rCopyAlt">Copiar</button></div></div>
+        <div class="row wrap">
+          <button id="rRegen" title="Ctrl+R">↻ Regenerar</button>
+          <button id="rShort">Más corta</button>
+          <button id="rLong">Más detallada</button>
+        </div>
+      </div>
+      <div class="label hist-title">Historial</div>
+      <div id="rHist"></div>
+      <button id="rHistClear" class="danger link">Borrar historial</button>
+    </div>
+  </section>
+
+  <!-- ENTRENAMIENTO -->
+  <section id="v-train" class="view">
+    <div class="pad">
+      <div id="tSetup">
+        <div class="row wrap">
+          <div class="fld"><label>Puesto</label>
+            <select id="tRole"><option>Java Spring Boot</option><option>.NET</option><option>IA / LLM</option><option>Full Stack (Java + React + AWS)</option><option>Sinfonia</option><option>Otro…</option></select>
+            <input id="tRoleOther" class="hidden" placeholder="Escribe el puesto"></div>
+          <div class="fld"><label>Nivel</label><select id="tLevel"><option value="facil">Fácil</option><option value="medio" selected>Medio</option><option value="dificil">Difícil</option></select></div>
+          <div class="fld"><label>Tipo</label><select id="tType"><option value="mixta" selected>Mixta</option><option value="tecnica">Técnica</option><option value="conductual">Conductual</option></select></div>
+          <div class="fld"><label>Preguntas</label><select id="tCount"><option>3</option><option selected>5</option><option>8</option><option>10</option></select></div>
+        </div>
+        <button id="tStart" class="primary wide">Empezar entrevista</button>
+        <div class="label hist-title">Mi progreso</div>
+        <div id="tProgress" class="card"></div>
+      </div>
+
+      <div id="tRun" class="hidden">
+        <div class="t-top"><span id="tNum" class="pill"></span><button id="tEnd" class="ghost">Terminar sesión</button></div>
+        <div class="card ans">
+          <div class="label">Pregunta del entrevistador</div>
+          <div id="tQ" class="r-en"></div>
+          <div id="tQes" class="r-es hidden"></div>
+          <div class="row"><button id="tSpeak">🔊 Escuchar</button><button id="tShowEs" class="ghost">Ver traducción</button></div>
+        </div>
+        <div id="tAnswerBox">
+          <div class="label">Tu respuesta</div>
+          <textarea id="tAns" rows="4" placeholder="Habla con el micrófono o escribe tu respuesta en inglés…"></textarea>
+          <div class="row wrap">
+            <button id="tMic" class="mic">🎤 Hablar <kbd>Ctrl+M</kbd></button>
+            <span id="tMicSt" class="hint"></span>
+            <span class="spacer"></span>
+            <button id="tGrade" class="primary">Calificar <kbd>Ctrl+Enter</kbd></button>
+          </div>
+        </div>
+        <div id="tResult" class="hidden"></div>
+      </div>
+
+      <div id="tSummary" class="hidden"></div>
+    </div>
+  </section>
+
+  </div><!-- /content -->
+</div><!-- /shell -->
 
   <!-- ASISTENTE DE PRIMER USO -->
   <div id="wizard" class="wizard hidden">
@@ -169,5 +253,7 @@
   </div>
 
   <script src="renderer.js"></script>
+  <script src="read.js"></script>
+  <script src="train.js"></script>
 </body>
 </html>

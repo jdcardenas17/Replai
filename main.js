@@ -9,7 +9,7 @@ let hidden = false;
 // Carpeta de datos fija "Replai"; si venías de versiones anteriores, se migran tus datos (claves, perfil, reuniones)
 (() => {
   const root = app.getPath('appData');
-  const dest = path.join(root, 'Replai');
+  const dest = process.env.REPLAI_DATA || path.join(root, 'Replai');   // REPLAI_DATA: solo para pruebas
   app.setPath('userData', dest);
   try {
     if (!fs.existsSync(path.join(dest, 'config.json'))) {
@@ -114,10 +114,11 @@ function saveMeeting(m) {
 function createWindow() {
   const cfg = readCfg();
   const { width: sw } = screen.getPrimaryDisplay().workAreaSize;
-  const b = cfg.bounds || { width: 520, height: 640, x: sw - 540, y: 40 };
+  let b = cfg.bounds || { width: 820, height: 700, x: Math.max(0, Math.round((sw - 820) / 2)), y: 40 };
+  if (b.width < 720) b = { ...b, width: 820, height: Math.max(b.height, 700) };   // ahora hay barra lateral: ventana más ancha
   win = new BrowserWindow({
     ...b,
-    minWidth: 360, minHeight: 300,
+    minWidth: 640, minHeight: 480,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,        // no aparece en la barra de tareas al compartir pantalla completa
@@ -188,6 +189,18 @@ app.whenReady().then(() => {
   createWindow();
   createHud();
   setupUpdater();
+
+  const feats = require('./features')({
+    ipcMain, screen, desktopCapturer, dialog, app, readCfg, streamClaude,
+    getProfile: () => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } },
+    getWin: () => win,
+    showControl: () => { win.show(); win.focus(); },
+  });
+  const goto = name => { win.show(); win.focus(); win.webContents.send('ui:goto', name); };
+  globalShortcut.register('Control+Alt+1', () => goto('live'));
+  globalShortcut.register('Control+Alt+2', () => goto('read'));
+  globalShortcut.register('Control+Alt+3', () => goto('train'));
+  globalShortcut.register('Control+Alt+S', () => { feats.startRegionCapture(); });   // capturar zona de pantalla
 
   globalShortcut.register('Control+Alt+H', toggleHud);                           // ocultar/mostrar HUD
   globalShortcut.register('Control+Alt+P', toggleControl);                       // panel de control
@@ -342,7 +355,8 @@ REGLAS:
   · Pregunta cerrada o simple (sí/no, disponibilidad, datos puntuales): 1 frase, máximo 2.
   · Pregunta abierta de motivación u opinión ("why do you want to work here?", "why this role?", "what do you like about...?"): 2 a 3 frases (~35-50 palabras) con un motivo concreto basado en la empresa/rol del contexto y un toque personal, p. ej. "I like that it's a company focused on X, and honestly, software development is my passion."
   · Pregunta de experiencia o comportamiento: 2 a 3 frases (~35-55 palabras).
-  · Solo "tell me about yourself", preguntas técnicas profundas o de diseño: hasta 4-5 frases (~70-90 palabras).
+  · Preguntas abiertas que piden explicar un proceso, comparar opciones, diseñar algo o "walk me through...": una respuesta un poco más estructurada, con orden claro ("First..., then..., finally..."), 4-6 frases cortas (~70-100 palabras).
+  · "Tell me about yourself" y preguntas técnicas profundas: hasta 4-5 frases (~70-90 palabras).
   Ante la duda, más corto. Un poco de calidez humana está bien, pero sin extenderse.
 - Apóyate en el perfil del usuario SOLO cuando la pregunta trate de su experiencia, tecnologías o trayectoria: cita 1 o 2 datos concretos y relevantes (empresa, tecnología, años, proyecto) como lo diría quien lo vivió. No recites el CV.
 - Suena como una PERSONA real hablando en una reunión, no como un traductor ni un texto escrito: tono relajado y seguro, contracciones (I'm, I've, that's, we're), frases cortas, vocabulario cotidiano. Evita fórmulas rebuscadas o corporativas ("I would be delighted to", "Certainly"). Puedes abrir con una muletilla natural y breve cuando encaje ("Yeah,", "Sure,", "So,", "Honestly,", "Good question,"). Nada de listas ni viñetas. No repitas la pregunta de vuelta. Fácil de leer en voz alta, sin palabras difíciles de pronunciar.
