@@ -422,8 +422,8 @@ REGLAS:
 - Responde únicamente [NO_RESPONSE] SOLO cuando lo último sea claramente una frase suelta que no espera nada del usuario (p. ej. "okay", "mm-hmm", "thanks", "let me share my screen", ruido o charla entre otras personas). Cualquier pregunta, petición o invitación a hablar ("tell me about yourself", "walk me through...", "describe...", "how are you?", "can you hear me?") SIEMPRE se responde, aunque sea simple o un saludo.
 - Solo si la transcripción es totalmente ininteligible (no si el tema es difícil), sugiere: "Sorry, you cut out for a second, could you say that again?"
 
-FORMATO ESTRICTO (sin nada más, en este orden):
-<resumen en UNA frase corta en español de lo que te preguntaron o dijeron, p. ej. "Te preguntan si puedes trabajar en horario de EE. UU., 9am–5pm ET">
+FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu primera línea ya es el resumen; en este orden):
+<resumen en UNA sola línea corta, en español de lo que te preguntaron o dijeron, p. ej. "Te preguntan si puedes trabajar en horario de EE. UU., 9am–5pm ET">
 ---EN---
 <respuesta en inglés, lo que el usuario dice en voz alta>
 ---ES---
@@ -453,7 +453,8 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
   const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
     (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
     (extraNote ? `\n\nNota del usuario: ${extraNote}` : '') +
-    (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '');
+    (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '') +
+    '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.';
   try {
     let content = user;
     if (withScreen) {

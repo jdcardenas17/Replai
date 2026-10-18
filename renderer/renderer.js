@@ -45,12 +45,13 @@ function ask(question, note, withScreen, force) {
   setStatus('Pensando…', 'busy');
   api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen, force });
 }
+const cleanQ = t => { const ls = String(t).split('\n').map(x => x.trim()).filter(Boolean); return (ls[ls.length - 1] || '').replace(/^(resumen|summary)\s*:\s*/i, ''); };
 function parseAnswer(raw, final = false) {
   let q = '', rest = raw;
   if (raw.includes('---EN---')) { const i = raw.indexOf('---EN---'); q = raw.slice(0, i); rest = raw.slice(i + 8); }
-  else if (!final) { return { q: raw.trim(), en: '', es: '' }; }      // aún llega el resumen
+  else if (!final) { return { q: cleanQ(raw), en: '', es: '' }; }      // aún llega el resumen
   const [en, es] = rest.split('---ES---');
-  return { q: q.trim(), en: (en || '').trim(), es: (es || '').trim() };
+  return { q: cleanQ(q), en: (en || '').trim(), es: (es || '').trim() };
 }
 const idleStatus = () => setStatus(S.listening ? 'Escuchando' : 'Listo', S.listening ? 'on' : '');
 
