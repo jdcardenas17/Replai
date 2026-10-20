@@ -326,6 +326,7 @@ const LIC_TXT = {
   invalid: 'Esa clave no es válida. Revísala e inténtalo de nuevo.',
   inactive: 'Tu suscripción no está activa. Renuévala en PayPal o suscríbete de nuevo.',
   revoked: 'Esta licencia fue desactivada. Escríbenos por WhatsApp.',
+  expired: 'Esta licencia ya venció. Escríbenos por WhatsApp para renovarla.',
   devices: 'Esta licencia ya se usa en 2 computadores. Escríbenos si cambiaste de equipo.',
   offline: 'No pudimos verificar tu licencia (sin internet por más de 72 h). Conéctate para continuar.',
 };
