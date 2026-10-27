@@ -41,3 +41,5 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 .chat input:focus { border-color: var(--accent); }
 .grip { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 55%, rgba(140, 155, 255, .55) 55%, rgba(140, 155, 255, .55) 62%, transparent 62%, transparent 72%, rgba(140, 155, 255, .55) 72%, rgba(140, 155, 255, .55) 79%, transparent 79%); }
 .ct { position: absolute; top: 0; left: 0; right: 0; background: #ffb84d; color: #000; font-size: 10px; text-align: center; border-radius: 14px 14px 0 0; }
+
+.keys { margin-top: 6px; color: #ffd27a; font-size: calc(var(--fs) * .55); line-height: 1.35; }

@@ -38,6 +38,7 @@
     <div class="live-scroll">
       <div id="startCard" class="card start">
         <div class="meet-line">Reunión: <b id="liveMeetingName">—</b></div>
+        <div class="row" style="justify-content:center;margin:0 0 10px"><select id="modeSel" style="max-width:340px"><option value="talk">Modo: Conversación</option><option value="tech">Modo: Técnica (desarrollo de software)</option></select></div>
         <button id="btnListen" class="big">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           <span id="btnListenTxt">Empezar a escuchar</span>
@@ -49,6 +50,7 @@
         <div class="label" id="answerLabel">Respuesta sugerida</div>
         <div id="en" class="en">Aquí aparecerá lo que debes decir, en inglés y con su traducción.</div>
         <div id="es" class="es"></div>
+        <div id="keyLine" class="keys-line"></div>
         <div class="card-actions"><button class="ghost" id="btnCopy">Copiar</button></div>
       </div>
 

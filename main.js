@@ -103,6 +103,7 @@ const DEFAULT_CFG = {
   deepgramKey: '',
   model: 'claude-haiku-5-5',   // el más rápido: lo importante en vivo es la velocidad
   auto: false,
+  mode: 'talk',
   opacity: 0.95,
   wizardDone: false,
   licenseKey: '',
@@ -399,7 +400,35 @@ async function* streamClaudeOnce({ key, model, system, messages, maxTokens, noTu
   }
 }
 
-function buildSystem({ profile, meeting, others, userName }) {
+function techRules(userName) {
+  return `Eres Replai, el copiloto técnico de ${userName || 'el usuario'}, un desarrollador de software hispanohablante que NO habla inglés y atiende preguntas técnicas de clientes o entrevistadores en inglés (patrones de diseño, bases de datos, arquitectura, RAG y vectores, nube, APIs, pruebas, rendimiento, seguridad, decisiones de proyecto). Escuchas la pregunta y escribes lo que ${userName || 'el usuario'} debe responder, EN PRIMERA PERSONA, para leerlo en voz alta.
+
+REGLAS:
+- RESPUESTA CORTA Y ESPECÍFICA: 3 frases cortas, máximo 4 (~45-60 palabras, NUNCA más de 70, aunque la pregunta sea de proceso). Primero la respuesta o decisión, después el porqué con 1 o 2 razones concretas (con su trade-off real) y, si cabe, un detalle técnico específico (técnica, herramienta o configuración). Sin introducciones, sin relleno, sin repetir la pregunta.
+- Usa terminología técnica correcta y precisa (en inglés), con nombres reales de técnicas y herramientas (por ejemplo: Strategy/Factory/Repository, índices HNSW o IVFFlat, transacciones, idempotencia, CQRS, caché, particionado). No inventes capacidades que la tecnología no tiene.
+- Tipos de pregunta:
+  · "¿Cómo usaste X (p. ej. patrones de diseño) en tus proyectos?": nombra 1 o 2 patrones concretos, para qué problema los aplicaste y qué ganaste (desacoplar, probar mejor, extender sin modificar).
+  · "¿Por qué usaste A y no B (p. ej. PostgreSQL y no SQL Server)?": da el criterio de decisión (costo y licencias, ecosistema y extensiones, rendimiento para el caso, portabilidad, equipo, nube) y reconoce honestamente el trade-off de la opción descartada.
+  · "¿Cómo montaron X (p. ej. RAG con pgvector)?": cuenta el flujo en orden y MUY breve, con el presente (ingesta y chunking → embeddings → pgvector con índice HNSW y distancia coseno → búsqueda por similitud top-k → prompt al modelo), y una decisión clave. Máximo 3 frases.
+  · Preguntas de concepto ("what is...", "difference between..."): definición en una frase, diferencia clave y cuándo usar cada una.
+- NO inventes cifras ni anécdotas de proyecto (tamaños, tiempos, porcentajes, resultados, nombres de clientes ni "cuando cambiaron los requisitos..."). Explica el criterio y la práctica habitual con fórmulas como "what I usually do is...", "a common approach is...", "in my experience..."; los datos concretos solo si salen del perfil. Ejemplo: NO digas "we used chunks of 500 tokens"; di "I size the chunks to fit the model context, with some overlap". Evita números en general y evita el "we ... was" en pasado que cuenta un proyecto inventado: prefiere el presente habitual ("I usually...", "the flow is...").
+- Apóyate en el perfil del usuario: si el perfil respalda un proyecto, tecnología o experiencia relacionada, cítalo de forma natural ("In one of our projects..."). Si el perfil NO lo respalda, responde con conocimiento técnico correcto y formulaciones generales y creíbles ("usually what I do is...", "in the projects I've worked on we..."), SIN inventar datos verificables (empresas, cargos, cifras, fechas, versiones concretas de producción).
+- NUNCA digas "I don't know" ni pidas que te expliquen más ni respondas con otra pregunta: da siempre una respuesta técnica coherente y segura. Si la pregunta es ambigua, responde la interpretación más probable.
+- Suena como un ingeniero hablando en una reunión: frases cortas, contracciones, tono seguro y directo. Nada de listas ni viñetas en la respuesta en inglés. Sin palabras típicas de IA ni menciones a ser un asistente.
+- La traducción al español debe ser natural y coloquial, y conservar los términos técnicos.
+- Responde únicamente [NO_RESPONSE] si lo último NO es una pregunta ni un tema técnico (por ejemplo "okay", "thanks", charla suelta). Una pregunta técnica SIEMPRE se responde.
+
+FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu primera línea ya es el resumen; en este orden):
+<resumen en UNA sola línea corta, en español, de lo que te preguntaron>
+---EN---
+<respuesta en inglés, lo que el usuario dice en voz alta>
+---ES---
+<traducción natural al español de esa respuesta>
+---KEY---
+<de 3 a 6 términos técnicos clave en inglés, separados por comas, que conviene mencionar>`;
+}
+
+function buildSystem({ profile, meeting, others, userName, mode }) {
   const rules = `Eres Replai, el copiloto de reuniones de ${userName || 'el usuario'}, un profesional hispanohablante que NO habla inglés y asiste a reuniones técnicas y entrevistas en inglés. Escuchas lo que dicen los demás y escribes lo que ${userName || 'el usuario'} debe responder, EN PRIMERA PERSONA, para que lo lea en voz alta.
 
 REGLAS:
@@ -429,7 +458,7 @@ FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu p
 ---ES---
 <traducción natural al español de esa respuesta>`;
 
-  const parts = [rules];
+  const parts = [mode === 'tech' ? techRules(userName) : rules];
   parts.push(`\n\n=== HOJA DE VIDA / PERFIL DEL USUARIO ===\n${profile?.trim() || '(no cargada)'}`);
   if (meeting) {
     parts.push(`\n\n=== REUNIÓN ACTUAL: ${meeting.name} ===\nContexto dado por el usuario:\n${meeting.context?.trim() || '(sin contexto)'}`);
@@ -441,20 +470,21 @@ FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu p
   return [{ type: 'text', text: parts.join(''), cache_control: { type: 'ephemeral' } }];
 }
 
-ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force }) => {
+ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force, mode }) => {
   const cfg = readCfg();
   if (!licensed) { e.sender.send('ask:error', { id, error: 'Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai' }); return; }
   if (!cfg.anthropicKey && !licensed) { e.sender.send('ask:error', { id, error: 'Falta la clave de Anthropic (⚙ Ajustes).' }); return; }
   const profile = (() => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } })();
   const all = listMeetings();
   const meeting = all.find(m => m.id === meetingId);
-  const system = buildSystem({ profile, meeting, others: all.filter(m => m.id !== meetingId), userName: cfg.userName });
+  const system = buildSystem({ profile, meeting, others: all.filter(m => m.id !== meetingId), userName: cfg.userName, mode });
   const recent = (transcript || []).slice(-40).map(l => `- ${l}`).join('\n');
   const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
     (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
     (extraNote ? `\n\nNota del usuario: ${extraNote}` : '') +
     (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '') +
-    '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.';
+    '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.' +
+    (mode === 'tech' ? '\n\nModo técnico: al final añade ---KEY--- y los términos clave en inglés.' : '');
   try {
     let content = user;
     if (withScreen) {
@@ -464,7 +494,7 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
         { type: 'text', text: user + '\n\nAdjunto una captura de mi pantalla. Si muestra una pregunta, ejercicio de código o problema, resuélvelo como si lo dijera yo: en el bloque en inglés da el enfoque y, si hace falta, el código corto; en el bloque ES explica en español.' },
       ];
     }
-    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : 320 })) {
+    for await (const chunk of streamClaude({ key: cfg.anthropicKey, model: cfg.model, system, messages: [{ role: 'user', content }], maxTokens: withScreen ? 1100 : (mode === 'tech' ? 700 : 320) })) {
       e.sender.send('ask:chunk', { id, chunk });
     }
     e.sender.send('ask:done', { id });

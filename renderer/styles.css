@@ -149,3 +149,6 @@ button.mic.rec { background: #4a1f29; border-color: #8a2b3c; color: #ff9aa6; ani
 .sess-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 3px 0; }
 
 .wall { z-index: 80; }
+
+.keys-line { margin-top: 8px; color: #ffd27a; font-size: 12.5px; }
+.keys-line:empty { display: none; }

@@ -21,6 +21,10 @@ function render() {
   $('heardBox').style.display = st.heard ? '' : 'none';
   $('heard').scrollTop = 1e6;
   $('aAuto').classList.toggle('on', !!st.auto);
+  $('aMode').classList.toggle('on', st.mode === 'tech');
+  $('aMode').textContent = st.mode === 'tech' ? '🛠 Técnica ✓' : '🛠 Técnica';
+  $('keys').textContent = st.key ? '🔑 ' + st.key : '';
+  $('keys').style.display = st.key ? '' : 'none';
   $('aAuto').textContent = st.auto ? 'Auto ✓' : 'Auto';
   $('aToggle').textContent = st.listening ? '⏸' : '▶';
   $('aToggle').title = st.listening ? 'Pausar escucha' : 'Empezar a escuchar';
@@ -42,6 +46,7 @@ $('aAnswer').onclick = () => cmd('answer');
 $('aShot').onclick = () => cmd('shot');
 $('aClear').onclick = () => cmd('clear');
 $('aAuto').onclick = () => cmd('auto');
+$('aMode').onclick = () => cmd('mode');
 $('aToggle').onclick = () => cmd('toggle');
 $('aEnd').onclick = () => cmd('end');
 $('fsPlus').onclick = () => cmd('font', { delta: 2 });

@@ -40,18 +40,19 @@ function ask(question, note, withScreen, force) {
   if (!q && !S.transcript.length && !withScreen) return;
   const id = ++S.askId;
   S.curQ = q || (withScreen ? '📷 Captura de pantalla' : S.transcript.slice(-1)[0] || '');
-  S.raw = ''; S.qsum = '';
+  S.raw = ''; S.qsum = ''; S.key = ''; $('keyLine').textContent = '';
   $('answerLabel').textContent = 'Pensando…';
   setStatus('Pensando…', 'busy');
-  api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen, force });
+  api.ask({ id, transcript: S.transcript, question: q, meetingId: S.meetingId, extraNote: note, withScreen, force, mode: S.mode });
 }
 const cleanQ = t => { const ls = String(t).split('\n').map(x => x.trim()).filter(Boolean); return (ls[ls.length - 1] || '').replace(/^(resumen|summary)\s*:\s*/i, ''); };
 function parseAnswer(raw, final = false) {
   let q = '', rest = raw;
   if (raw.includes('---EN---')) { const i = raw.indexOf('---EN---'); q = raw.slice(0, i); rest = raw.slice(i + 8); }
   else if (!final) { return { q: cleanQ(raw), en: '', es: '' }; }      // aún llega el resumen
-  const [en, es] = rest.split('---ES---');
-  return { q: cleanQ(q), en: (en || '').trim(), es: (es || '').trim() };
+  const [en, esAll] = rest.split('---ES---');
+  const [es, key] = (esAll || '').split('---KEY---');
+  return { q: cleanQ(q), en: (en || '').trim(), es: (es || '').trim(), key: (key || '').trim() };
 }
 const idleStatus = () => setStatus(S.listening ? 'Escuchando' : 'Listo', S.listening ? 'on' : '');
 
@@ -60,18 +61,19 @@ api.onChunk(({ id, chunk }) => {
   S.raw += chunk;
   const t = S.raw.trim();
   if ('[NO_RESPONSE]'.startsWith(t) || t.startsWith('[NO_RESPONSE]')) return;
-  const { q, en, es } = parseAnswer(S.raw);
-  S.qsum = q;
+  const { q, en, es, key } = parseAnswer(S.raw);
+  S.qsum = q; S.key = key;
+  $('keyLine').textContent = key ? '🔑 ' + key : '';
   showAnswer(en, es);
-  $('answerLabel').textContent = 'Respuesta sugerida';
+  $('answerLabel').textContent = S.mode === 'tech' ? 'Respuesta técnica' : 'Respuesta sugerida';
 });
 api.onDone(({ id }) => {
   if (id !== S.askId) return;
   idleStatus();
   if (!S.raw.trim()) { $('answerLabel').textContent = 'Sin respuesta · pulsa Responder otra vez'; return; }
   if (S.raw.trim().startsWith('[NO_RESPONSE]')) { $('answerLabel').textContent = 'No detecté pregunta en lo último · pulsa Responder si quieres respuesta'; return; }
-  const { q, en, es } = parseAnswer(S.raw, true);
-  S.qsum = q;
+  const { q, en, es, key } = parseAnswer(S.raw, true);
+  S.qsum = q; S.key = key;
   if (!S.raw.includes('---EN---')) showAnswer(en, es);
   S.qa.push({ q: q || S.curQ, en, es, a: en });
   renderHistory();
@@ -200,6 +202,8 @@ async function newMeeting(name = 'Nueva reunión', context = '') {
 
 // ---------- Eventos ----------
 $('btnListen').onclick = toggleListen;
+const setMode = m => { S.mode = m; $('modeSel').value = m; api.setCfg({ mode: m }); };
+$('modeSel').onchange = () => setMode($('modeSel').value);
 $('autoSw').onchange = () => { S.auto = $('autoSw').checked; api.setCfg({ auto: S.auto }); };
 $('btnHide').onclick = () => api.minimize();
 $('btnQuit').onclick = () => api.quit();
@@ -298,6 +302,7 @@ $('wNext').onclick = async () => {
 async function init() {
   S.cfg = await api.getCfg();
   S.auto = S.cfg.auto; $('autoSw').checked = S.auto; applyFont();
+  S.mode = S.cfg.mode === 'tech' ? 'tech' : 'talk'; $('modeSel').value = S.mode;
   ['userName', 'anthropicKey', 'deepgramKey', 'model', 'workspaceId'].forEach(k => $(k).value = S.cfg[k] || '');
   $('fontSize').value = S.cfg.fontSize; $('fsVal').textContent = S.cfg.fontSize;
   $('opacity').value = Math.round(S.cfg.opacity * 100);
@@ -360,7 +365,7 @@ setInterval(() => {
   const s = {
     listening: S.listening, auto: S.auto, startedAt: S.startedAt,
     status: $('status').textContent, dotCls: $('dot').className.replace('dot', '').trim(),
-    qsum: S.qsum || '', label: $('answerLabel').textContent, en: $('en').textContent, es: $('es').textContent,
+    qsum: S.qsum || '', key: S.key || '', mode: S.mode || 'talk', label: $('answerLabel').textContent, en: $('en').textContent, es: $('es').textContent,
     heard: S.transcript.slice(-4).concat($('heardText').querySelector('.interim')?.textContent || []).join('\n').slice(-600),
     fs: S.cfg.fontSize || 22,
   };
@@ -370,7 +375,7 @@ setInterval(() => {
 
 function clearAnswer() {
   // Limpiar borra también lo que se había escuchado, para que voces de fondo no se mezclen con la próxima pregunta
-  S.askId++; S.pending = ''; S.buf = ''; S.interim = ''; S.transcript = []; S.mark = 0; S.qsum = '';
+  S.askId++; S.pending = ''; S.buf = ''; S.interim = ''; S.transcript = []; S.mark = 0; S.qsum = ''; S.key = ''; $('keyLine').textContent = '';
   renderHeard();
   showAnswer('', ''); $('answerLabel').textContent = 'Respuesta sugerida';
   idleStatus();
@@ -380,6 +385,7 @@ api.onHudCmd(async c => {
     case 'answer': return answerNow();
     case 'shot': return ask('', '', true);
     case 'clear': return clearAnswer();
+    case 'mode': return setMode(S.mode === 'tech' ? 'talk' : 'tech');
     case 'auto': $('autoSw').checked = !$('autoSw').checked; return $('autoSw').onchange();
     case 'toggle': return toggleListen();
     case 'chat': S.transcript.push(c.text); renderHeard(); return ask(c.text, '', false, true);
