@@ -114,7 +114,7 @@ function dgSocket(query) {
 const hasAI = () => Boolean((S.cfg.deepgramKey && S.cfg.anthropicKey) || S.licOk);
 
 function connectDeepgram() {
-  const ws = dgSocket('language=en&smart_format=true&punctuate=true&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true');
+  const ws = dgSocket('language=' + (S.cfg.listenLang === 'en' ? 'en' : 'multi') + '&smart_format=true&punctuate=true&interim_results=true&endpointing=250&utterance_end_ms=1000&vad_events=true');
   S.ws = ws;
   ws.onopen = () => {
     S.retry = 0;
@@ -267,7 +267,7 @@ $('opacity').oninput = () => api.setCfg({ opacity: +$('opacity').value / 100 });
 $('btnSaveCfg').onclick = async () => {
   S.cfg = await api.setCfg({
     userName: $('userName').value.trim(), anthropicKey: $('anthropicKey').value.trim(),
-    deepgramKey: $('deepgramKey').value.trim(), model: $('model').value, workspaceId: $('workspaceId').value.trim(), fontSize: +$('fontSize').value,
+    deepgramKey: $('deepgramKey').value.trim(), model: $('model').value, listenLang: $('listenLang').value, workspaceId: $('workspaceId').value.trim(), fontSize: +$('fontSize').value,
   });
   setStatus('Ajustes guardados ✔');
 };
@@ -303,6 +303,7 @@ async function init() {
   S.cfg = await api.getCfg();
   S.auto = S.cfg.auto; $('autoSw').checked = S.auto; applyFont();
   S.mode = S.cfg.mode === 'tech' ? 'tech' : 'talk'; $('modeSel').value = S.mode;
+  $('listenLang').value = S.cfg.listenLang === 'en' ? 'en' : 'multi';
   ['userName', 'anthropicKey', 'deepgramKey', 'model', 'workspaceId'].forEach(k => $(k).value = S.cfg[k] || '');
   $('fontSize').value = S.cfg.fontSize; $('fsVal').textContent = S.cfg.fontSize;
   $('opacity').value = Math.round(S.cfg.opacity * 100);

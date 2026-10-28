@@ -97,7 +97,16 @@
         <button id="btnImport">📄 Cargar PDF / TXT</button>
         <button id="btnSaveProfile" class="primary">Guardar perfil</button>
       </div>
-      <textarea id="profile" rows="16" placeholder="Pega aquí tu hoja de vida…"></textarea>
+      <textarea id="profile" rows="12" placeholder="Pega aquí tu hoja de vida…"></textarea>
+
+      <div class="label hist-title" style="margin-top:22px">Documentación de mis proyectos</div>
+      <p class="hint top">Sube la documentación de tus proyectos (PDF, Word, Markdown, TXT, código) o descríbelos. Replai busca lo relevante a cada pregunta y lo usa para responder con datos reales tuyos, aunque el documento esté en español y la pregunta en inglés. Se guarda en tu cuenta y sirve también en la web y el celular.</p>
+      <div class="row wrap"><button id="dUpload" class="primary">📎 Subir documentos</button><span id="dMsg" class="hint"></span></div>
+      <div id="dList" style="margin-top:8px"></div>
+      <label>O describe un proyecto con tus palabras</label>
+      <input id="dTitle" placeholder="Nombre del proyecto (ej: Sinfonia)">
+      <textarea id="dNote" rows="4" placeholder="Qué hace, tecnologías, decisiones y por qué (base de datos, arquitectura, patrones, RAG…), tu rol, resultados…"></textarea>
+      <button id="dSaveNote">Guardar descripción</button>
     </div>
   </section>
 
@@ -112,6 +121,8 @@
       <input id="workspaceId" placeholder="wrkspc_…">
       <label>Clave de Deepgram (opcional: si la dejas vacía se usa la transcripción incluida)</label>
       <input id="deepgramKey" type="password">
+      <label>Idioma que escucha en las reuniones</label>
+      <select id="listenLang"><option value="multi">Inglés y español (responde en el idioma de la pregunta)</option><option value="en">Solo inglés (más preciso si todo es en inglés)</option></select>
       <label>Velocidad / calidad</label>
       <select id="model">
         <option value="claude-sonnet-5-5">Equilibrado (Sonnet 5.5)</option>
@@ -276,5 +287,6 @@
   <script src="renderer.js"></script>
   <script src="read.js"></script>
   <script src="train.js"></script>
+  <script src="docs.js"></script>
 </body>
 </html>

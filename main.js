@@ -65,6 +65,58 @@ ipcMain.handle('license:set', async (_e, key) => {
   return st;
 });
 
+// ---------- Documentación de proyectos (se guarda en tu cuenta de Replai y sirve en todos tus dispositivos) ----------
+async function licFetch(method, p, body, timeoutMs = 90000) {
+  const c = readCfg();
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(LIC_BASE + p, {
+      method, signal: ctrl.signal,
+      headers: { 'content-type': 'application/json', 'x-replai-key': c.licenseKey, 'x-replai-device': c.deviceId },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error?.message || (typeof d.error === 'string' ? d.error : '') || 'Error ' + res.status);
+    return d;
+  } finally { clearTimeout(t); }
+}
+// Bloque de texto con los fragmentos de documentación relevantes a la pregunta ('' si no hay o falla)
+async function docsText(query, k = 5) {
+  if (!licensed || !String(query || '').trim()) return '';
+  try {
+    const hits = await licFetch('POST', '/web/docs/search', { query: String(query).slice(0, 1200), k }, 3500);
+    if (!Array.isArray(hits) || !hits.length) return '';
+    return '\n\n=== DOCUMENTACIÓN DE LOS PROYECTOS DEL USUARIO (fragmentos relevantes a esta pregunta) ===\n' + hits.map(h => '[' + h.name + ']\n' + h.text).join('\n---\n');
+  } catch { return ''; }
+}
+async function extractFile(f) {
+  const ext = path.extname(f).toLowerCase();
+  if (ext === '.pdf') return (await require('pdf-parse')(fs.readFileSync(f))).text;
+  if (ext === '.docx') return (await require('mammoth').extractRawText({ path: f })).value;
+  return fs.readFileSync(f, 'utf8');
+}
+ipcMain.handle('docs:list', async () => { try { return await licFetch('GET', '/web/docs'); } catch { return []; } });
+ipcMain.handle('docs:delete', async (_e, id) => { await licFetch('DELETE', '/web/docs?id=' + encodeURIComponent(id)); return true; });
+ipcMain.handle('docs:note', async (_e, { title, text }) => {
+  try { const r = await licFetch('POST', '/web/docs', { name: 'Descripción: ' + (title || 'Proyecto'), text: '# ' + (title || 'Proyecto') + '\n\n' + text }); return { ok: true, chunks: r.chunks }; }
+  catch (e) { return { ok: false, error: e.message }; }
+});
+ipcMain.handle('docs:upload', async () => {
+  const r = await dialog.showOpenDialog(win, { title: 'Documentación de tus proyectos', properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Documentos y código', extensions: ['pdf', 'docx', 'md', 'markdown', 'txt', 'json', 'yml', 'yaml', 'xml', 'csv', 'sql', 'java', 'kt', 'cs', 'ts', 'tsx', 'js', 'jsx', 'py', 'go', 'rb', 'php', 'html', 'css', 'properties', 'gradle', 'toml', 'ini', 'log', 'rst'] }] });
+  if (r.canceled) return [];
+  const out = [];
+  for (const f of r.filePaths) {
+    const name = path.basename(f);
+    try {
+      const text = await extractFile(f);
+      const d = await licFetch('POST', '/web/docs', { name, text });
+      out.push({ name, ok: true, chunks: d.chunks });
+    } catch (e) { out.push({ name, ok: false, error: String(e.message || e) }); }
+  }
+  return out;
+});
+
 // ---------- Actualizaciones automáticas (desde sitiorapido.lat, solo con licencia) ----------
 let updaterStarted = false;
 function setupUpdater(force) {
@@ -104,6 +156,7 @@ const DEFAULT_CFG = {
   model: 'claude-haiku-5-5',   // el más rápido: lo importante en vivo es la velocidad
   auto: false,
   mode: 'talk',
+  listenLang: 'multi',   // 'multi' = inglés y español, 'en' = solo inglés
   opacity: 0.95,
   wizardDone: false,
   licenseKey: '',
@@ -244,7 +297,7 @@ app.whenReady().then(() => {
   const feats = require('./features')({
     ipcMain, screen, desktopCapturer, dialog, app, readCfg, streamClaude,
     getProfile: () => { try { return fs.readFileSync(profilePath(), 'utf8'); } catch { return ''; } },
-    getWin: () => win, isLicensed: () => licensed,
+    getWin: () => win, isLicensed: () => licensed, docsFor: docsText,
     showControl: () => { win.show(); win.focus(); },
   });
   const goto = name => { win.show(); win.focus(); win.webContents.send('ui:goto', name); };
@@ -412,10 +465,12 @@ REGLAS:
   · "¿Cómo montaron X (p. ej. RAG con pgvector)?": cuenta el flujo en orden y MUY breve, con el presente (ingesta y chunking → embeddings → pgvector con índice HNSW y distancia coseno → búsqueda por similitud top-k → prompt al modelo), y una decisión clave. Máximo 3 frases.
   · Preguntas de concepto ("what is...", "difference between..."): definición en una frase, diferencia clave y cuándo usar cada una.
 - NO inventes cifras ni anécdotas de proyecto (tamaños, tiempos, porcentajes, resultados, nombres de clientes ni "cuando cambiaron los requisitos..."). Explica el criterio y la práctica habitual con fórmulas como "what I usually do is...", "a common approach is...", "in my experience..."; los datos concretos solo si salen del perfil. Ejemplo: NO digas "we used chunks of 500 tokens"; di "I size the chunks to fit the model context, with some overlap". Evita números en general y evita el "we ... was" en pasado que cuenta un proyecto inventado: prefiere el presente habitual ("I usually...", "the flow is...").
+- Si aparece una sección "DOCUMENTACIÓN DE LOS PROYECTOS DEL USUARIO", úsala como fuente PRINCIPAL: toma de ahí las decisiones, tecnologías y motivos reales y cuéntalos en primera persona, en presente o pasado según corresponda, sin decir que vienen de un documento. Con esos datos reales SÍ puedes ser concreto (nombres de tecnologías, decisiones), pero no añadas cifras que no estén escritas. Si no cubren la pregunta, responde con criterio general.
 - Apóyate en el perfil del usuario: si el perfil respalda un proyecto, tecnología o experiencia relacionada, cítalo de forma natural ("In one of our projects..."). Si el perfil NO lo respalda, responde con conocimiento técnico correcto y formulaciones generales y creíbles ("usually what I do is...", "in the projects I've worked on we..."), SIN inventar datos verificables (empresas, cargos, cifras, fechas, versiones concretas de producción).
 - NUNCA digas "I don't know" ni pidas que te expliquen más ni respondas con otra pregunta: da siempre una respuesta técnica coherente y segura. Si la pregunta es ambigua, responde la interpretación más probable.
 - Suena como un ingeniero hablando en una reunión: frases cortas, contracciones, tono seguro y directo. Nada de listas ni viñetas en la respuesta en inglés. Sin palabras típicas de IA ni menciones a ser un asistente.
 - La traducción al español debe ser natural y coloquial, y conservar los términos técnicos.
+- IDIOMA: responde en el MISMO idioma en que te hablan. Si la pregunta viene en ESPAÑOL, escribe la respuesta directamente en español natural (el bloque ---EN--- lleva esa respuesta en español, que es lo que el usuario leerá en voz alta) y deja el bloque ---ES--- VACÍO. Si viene en inglés, responde en inglés con su traducción en ---ES---. Si la conversación mezcla idiomas, usa el idioma de la última pregunta. El resumen de una línea siempre va en español.
 - Responde únicamente [NO_RESPONSE] si lo último NO es una pregunta ni un tema técnico (por ejemplo "okay", "thanks", charla suelta). Una pregunta técnica SIEMPRE se responde.
 
 FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu primera línea ya es el resumen; en este orden):
@@ -444,7 +499,9 @@ REGLAS:
 - Apóyate en el perfil del usuario SOLO cuando la pregunta trate de su experiencia, tecnologías o trayectoria: cita 1 o 2 datos concretos y relevantes (empresa, tecnología, años, proyecto) como lo diría quien lo vivió. No recites el CV.
 - Suena como una PERSONA real hablando en una reunión, no como un traductor ni un texto escrito: tono relajado y seguro, contracciones (I'm, I've, that's, we're), frases cortas, vocabulario cotidiano. Evita fórmulas rebuscadas o corporativas ("I would be delighted to", "Certainly"). Puedes abrir con una muletilla natural y breve cuando encaje ("Yeah,", "Sure,", "So,", "Honestly,", "Good question,"). Nada de listas ni viñetas. No repitas la pregunta de vuelta. Fácil de leer en voz alta, sin palabras difíciles de pronunciar.
 - La traducción al español también debe sonar natural y coloquial, no literal.
+- IDIOMA: responde en el MISMO idioma en que te hablan. Si la pregunta viene en ESPAÑOL, escribe la respuesta directamente en español natural (el bloque ---EN--- lleva esa respuesta en español, que es lo que el usuario leerá en voz alta) y deja el bloque ---ES--- VACÍO. Si viene en inglés, responde en inglés con su traducción en ---ES---. Si la conversación mezcla idiomas, usa el idioma de la última pregunta. El resumen de una línea siempre va en español.
 - Basa todo en su hoja de vida, el contexto de la reunión y la memoria de reuniones pasadas.
+- Si aparece una sección "DOCUMENTACIÓN DE LOS PROYECTOS DEL USUARIO", úsala como fuente principal de datos reales de sus proyectos (decisiones, tecnologías, motivos): habla de ellos en primera persona y de forma natural, sin decir que vienen de un documento. Si esos fragmentos no cubren la pregunta, responde con criterio general.
 - SIEMPRE da una respuesta coherente y segura. NUNCA digas "I don't know", "I'm not sure", "I haven't worked with that", ni pidas que te expliquen más, ni respondas con una pregunta, ni uses frases de relleno para ganar tiempo. Si el tema no está en el perfil, responde con conocimiento técnico real y correcto: cómo funciona, cómo lo abordarías, qué buenas prácticas aplicarías, y conéctalo con experiencia afín que SÍ aparezca en el perfil. Usa formulaciones generales y creíbles ("in the projects I've worked on", "usually what I do is...") y NO inventes datos específicos verificables que no estén en el perfil (nombres de empresas, cargos, cifras, fechas, títulos, certificaciones).
 - Que no se note que es generado por IA: habla como persona normal, con ritmo oral y alguna imperfección leve natural; evita palabras típicas de IA (delve, leverage, robust, seamless, crucial, comprehensive), estructuras demasiado pulidas o simétricas, listas, y cualquier mención a ser un asistente o una IA.
 - En reuniones diarias (daily/standup): si preguntan qué hiciste ayer/hoy/bloqueos, usa la memoria de reuniones pasadas y el contexto actual.
@@ -470,6 +527,14 @@ FORMATO ESTRICTO (sin nada más: NO escribas introducciones ni comentarios; tu p
   return [{ type: 'text', text: parts.join(''), cache_control: { type: 'ephemeral' } }];
 }
 
+function detectLang(t) {
+  const s = ' ' + String(t || '').toLowerCase().replace(/[^a-záéíóúñü¿¡\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
+  const ES = ['el', 'la', 'los', 'las', 'que', 'qué', 'cómo', 'como', 'por', 'para', 'con', 'una', 'un', 'es', 'en', 'de', 'y', 'tu', 'tú', 'usted', 'hola', 'cuál', 'cuáles', 'porque', 'cuando', 'dónde', 'también', 'pero', 'sí', 'muy', 'esto', 'eso', 'mi', 'me', 'te', 'se', 'lo', 'al', 'del', 'hay', 'puedes', 'podrías', 'usaste', 'hiciste', 'proyecto', 'proyectos', 'cuéntame', 'explícame', 'estás', 'estoy', 'son', 'fue', 'era'];
+  const EN = ['the', 'you', 'your', 'and', 'to', 'of', 'is', 'are', 'what', 'how', 'why', 'did', 'do', 'can', 'could', 'would', 'with', 'for', 'in', 'on', 'have', 'this', 'that', 'it', 'we', 'i', 'tell', 'about', 'project', 'use', 'used', 'hi', 'hello', 'was', 'were', 'been', 'which', 'where', 'when'];
+  const count = list => list.reduce((n, w) => n + (s.split(' ' + w + ' ').length - 1), 0);
+  const es = count(ES) + (/[¿¡áéíóúñ]/.test(s) ? 3 : 0), en = count(EN);
+  return es > en ? 'es' : 'en';
+}
 ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force, mode }) => {
   const cfg = readCfg();
   if (!licensed) { e.sender.send('ask:error', { id, error: 'Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai' }); return; }
@@ -478,12 +543,15 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
   const all = listMeetings();
   const meeting = all.find(m => m.id === meetingId);
   const system = buildSystem({ profile, meeting, others: all.filter(m => m.id !== meetingId), userName: cfg.userName, mode });
+  const dblock = await docsText([question, (transcript || []).slice(-2).join(' ')].filter(Boolean).join(' '), mode === 'tech' ? 6 : 4);
+  if (dblock) system.push({ type: 'text', text: dblock });   // va aparte para no romper la caché del prompt
   const recent = (transcript || []).slice(-40).map(l => `- ${l}`).join('\n');
   const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
     (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
     (extraNote ? `\n\nNota del usuario: ${extraNote}` : '') +
     (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '') +
     '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.' +
+    (detectLang((question || (transcript || []).slice(-1)[0] || '')) === 'es' ? '\n\nIDIOMA DE LA PREGUNTA: ESPAÑOL. Escribe la respuesta (bloque ---EN---) EN ESPAÑOL, natural y hablado, y deja el bloque ---ES--- VACÍO. (Los términos clave de ---KEY--- siguen en inglés.)' : '\n\nIDIOMA DE LA PREGUNTA: INGLÉS.') +
     (mode === 'tech' ? '\n\nModo técnico: al final añade ---KEY--- y los términos clave en inglés.' : '');
   try {
     let content = user;

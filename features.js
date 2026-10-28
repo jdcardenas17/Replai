@@ -4,7 +4,7 @@ const fs = require('fs');
 const { BrowserWindow, nativeImage } = require('electron');
 
 module.exports = function register(ctx) {
-  const { ipcMain, screen, desktopCapturer, dialog, app, readCfg, getProfile, streamClaude, getWin, showControl, isLicensed } = ctx;
+  const { ipcMain, screen, desktopCapturer, dialog, app, readCfg, getProfile, streamClaude, getWin, showControl, isLicensed, docsFor } = ctx;
   const file = n => path.join(app.getPath('userData'), n);
   const readJson = (n, d) => { try { return JSON.parse(fs.readFileSync(file(n), 'utf8')); } catch { return d; } };
   const writeJson = (n, v) => fs.writeFileSync(file(n), JSON.stringify(v, null, 2));
@@ -133,7 +133,7 @@ Si el texto no pide respuesta directa (p. ej. una oferta de trabajo), redacta un
 Eres un entrevistador de ${cfgT.role}. Nivel: ${LEVEL[cfgT.level]}. Tipo: ${TYPE[cfgT.type]}. Esta es la pregunta ${n} de ${cfgT.count}.
 Reglas: hazla en inglés claro y natural (una sola pregunta, sin saludo). Mézclala entre preguntas típicas de entrevista y preguntas basadas en la experiencia real del perfil (empresas, proyectos, tecnologías). ${cfgT.type !== 'tecnica' && n >= cfgT.count - 1 ? 'Si aún no se preguntó, incluye una pregunta sobre expectativas salariales. ' : ''}No repitas las anteriores.
 Devuelve SOLO JSON: {"q":"<pregunta en inglés>","es":"<traducción al español>"}`;
-    const t = await collect({ key: cfg.anthropicKey, model: cfg.model, system, maxTokens: 300,
+    const t = await collect({ key: cfg.anthropicKey, model: cfg.model, system: system + await docsFor(`${cfgT.role} arquitectura decisiones técnicas proyecto`, 4), maxTokens: 300,
       messages: [{ role: 'user', content: previous.length ? `Preguntas ya hechas:\n- ${previous.join('\n- ')}` : 'Primera pregunta.' }] });
     return parseJson(t);
   });
@@ -148,7 +148,7 @@ Califica de 0 a 10 (decimales permitidos): content (¿responde lo que se pregunt
 "model_answer": respuesta modelo en inglés B1, frases cortas, basada SOLO en la experiencia real del perfil (sin inventar); si el perfil no cubre el tema, usa un ejemplo genérico plausible sin datos falsos específicos. "improvements": máximo 3 mejoras concretas en español, con ejemplo de cómo decirlo.
 Devuelve SOLO JSON:
 {"score":0,"content":0,"clarity":0,"grammar":0,"pronunciation":${viaVoice ? '0' : 'null'},"model_answer":"","model_answer_es":"","improvements":["","",""]}`;
-    const t = await collect({ key: cfg.anthropicKey, model: cfg.model, system, maxTokens: 900,
+    const t = await collect({ key: cfg.anthropicKey, model: cfg.model, system: system + await docsFor(`${question} ${answer}`, 5), maxTokens: 900,
       messages: [{ role: 'user', content: `Pregunta: ${question}\n\nRespuesta del usuario: ${answer || '(vacía)'}` }] });
     return parseJson(t);
   });
