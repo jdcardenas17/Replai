@@ -466,6 +466,7 @@ REGLAS:
   · Preguntas de concepto ("what is...", "difference between..."): definición en una frase, diferencia clave y cuándo usar cada una.
 - NO inventes cifras ni anécdotas de proyecto (tamaños, tiempos, porcentajes, resultados, nombres de clientes ni "cuando cambiaron los requisitos..."). Explica el criterio y la práctica habitual con fórmulas como "what I usually do is...", "a common approach is...", "in my experience..."; los datos concretos solo si salen del perfil. Ejemplo: NO digas "we used chunks of 500 tokens"; di "I size the chunks to fit the model context, with some overlap". Evita números en general y evita el "we ... was" en pasado que cuenta un proyecto inventado: prefiere el presente habitual ("I usually...", "the flow is...").
 - Si aparece una sección "DOCUMENTACIÓN DE LOS PROYECTOS DEL USUARIO", úsala como fuente PRINCIPAL: toma de ahí las decisiones, tecnologías y motivos reales y cuéntalos en primera persona, en presente o pasado según corresponda, sin decir que vienen de un documento. Con esos datos reales SÍ puedes ser concreto (nombres de tecnologías, decisiones), pero no añadas cifras que no estén escritas. Si no cubren la pregunta, responde con criterio general.
+- PROHIBIDO afirmar una arquitectura o decisión concreta de un proyecto ("in that project", "in our project", "we built", "we used") si no aparece en la documentación ni en el perfil del usuario: en ese caso explica tu enfoque habitual ("I usually...", "the way I approach it...").
 - Apóyate en el perfil del usuario: si el perfil respalda un proyecto, tecnología o experiencia relacionada, cítalo de forma natural ("In one of our projects..."). Si el perfil NO lo respalda, responde con conocimiento técnico correcto y formulaciones generales y creíbles ("usually what I do is...", "in the projects I've worked on we..."), SIN inventar datos verificables (empresas, cargos, cifras, fechas, versiones concretas de producción).
 - NUNCA digas "I don't know" ni pidas que te expliquen más ni respondas con otra pregunta: da siempre una respuesta técnica coherente y segura. Si la pregunta es ambigua, responde la interpretación más probable.
 - Suena como un ingeniero hablando en una reunión: frases cortas, contracciones, tono seguro y directo. Nada de listas ni viñetas en la respuesta en inglés. Sin palabras típicas de IA ni menciones a ser un asistente.
@@ -502,6 +503,7 @@ REGLAS:
 - IDIOMA: responde en el MISMO idioma en que te hablan. Si la pregunta viene en ESPAÑOL, escribe la respuesta directamente en español natural (el bloque ---EN--- lleva esa respuesta en español, que es lo que el usuario leerá en voz alta) y deja el bloque ---ES--- VACÍO. Si viene en inglés, responde en inglés con su traducción en ---ES---. Si la conversación mezcla idiomas, usa el idioma de la última pregunta. El resumen de una línea siempre va en español.
 - Basa todo en su hoja de vida, el contexto de la reunión y la memoria de reuniones pasadas.
 - Si aparece una sección "DOCUMENTACIÓN DE LOS PROYECTOS DEL USUARIO", úsala como fuente principal de datos reales de sus proyectos (decisiones, tecnologías, motivos): habla de ellos en primera persona y de forma natural, sin decir que vienen de un documento. Si esos fragmentos no cubren la pregunta, responde con criterio general.
+- PROHIBIDO afirmar una arquitectura o decisión concreta de un proyecto ("in that project", "in our project", "we built", "we used") si no aparece en la documentación ni en el perfil del usuario: en ese caso explica tu enfoque habitual ("I usually...", "the way I approach it...").
 - SIEMPRE da una respuesta coherente y segura. NUNCA digas "I don't know", "I'm not sure", "I haven't worked with that", ni pidas que te expliquen más, ni respondas con una pregunta, ni uses frases de relleno para ganar tiempo. Si el tema no está en el perfil, responde con conocimiento técnico real y correcto: cómo funciona, cómo lo abordarías, qué buenas prácticas aplicarías, y conéctalo con experiencia afín que SÍ aparezca en el perfil. Usa formulaciones generales y creíbles ("in the projects I've worked on", "usually what I do is...") y NO inventes datos específicos verificables que no estén en el perfil (nombres de empresas, cargos, cifras, fechas, títulos, certificaciones).
 - Que no se note que es generado por IA: habla como persona normal, con ritmo oral y alguna imperfección leve natural; evita palabras típicas de IA (delve, leverage, robust, seamless, crucial, comprehensive), estructuras demasiado pulidas o simétricas, listas, y cualquier mención a ser un asistente o una IA.
 - En reuniones diarias (daily/standup): si preguntan qué hiciste ayer/hoy/bloqueos, usa la memoria de reuniones pasadas y el contexto actual.
@@ -535,6 +537,7 @@ function detectLang(t) {
   const es = count(ES) + (/[¿¡áéíóúñ]/.test(s) ? 3 : 0), en = count(EN);
   return es > en ? 'es' : 'en';
 }
+const NODOC = '\n\nNo hay documentación relevante de los proyectos del usuario para esta pregunta. Responde con tu enfoque habitual en presente ("I usually...", "the way I approach it..."), SIN afirmar que lo hiciste en un proyecto concreto y SIN decir "in that project", "in our project", "we built" ni "we used". Si el perfil sí cubre el tema, puedes apoyarte en él.';
 ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote, withScreen, force, mode }) => {
   const cfg = readCfg();
   if (!licensed) { e.sender.send('ask:error', { id, error: 'Licencia inactiva. Activa o renueva tu suscripción en sitiorapido.lat/replai' }); return; }
@@ -546,11 +549,12 @@ ipcMain.handle('ask', async (e, { id, transcript, question, meetingId, extraNote
   const dblock = await docsText([question, (transcript || []).slice(-2).join(' ')].filter(Boolean).join(' '), mode === 'tech' ? 6 : 4);
   if (dblock) system.push({ type: 'text', text: dblock });   // va aparte para no romper la caché del prompt
   const recent = (transcript || []).slice(-40).map(l => `- ${l}`).join('\n');
-  const user = `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
+  const isEs = detectLang(question || (transcript || []).slice(-1)[0] || '') === 'es';
+  const user = (isEs ? 'IDIOMA: ESPAÑOL. Responde SOLO en español: el bloque ---EN--- debe estar escrito en español.\n\n' : '') + `Conversación reciente (la última línea es lo más nuevo; solo se oye a los demás, no al usuario):\n${recent || '(vacía)'}\n\n` +
     (question ? `Lo que dijo el interlocutor en su turno actual (responde a TODO esto, no solo a la última frase):\n"${question}"` : 'Responde a lo que se dijo en el último turno.') +
     (extraNote ? `\n\nNota del usuario: ${extraNote}` : '') +
     (force ? '\n\nEl usuario pidió explícitamente una respuesta: respóndela SIEMPRE, nunca uses [NO_RESPONSE].' : '') +
-    '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.' +
+    (dblock ? '' : NODOC) + '\n\nResponde ya, con este formato exacto: una línea de resumen en español, luego ---EN---, luego ---ES---. Sin introducción ni comentarios.' +
     (detectLang((question || (transcript || []).slice(-1)[0] || '')) === 'es' ? '\n\nIDIOMA DE LA PREGUNTA: ESPAÑOL. Escribe la respuesta (bloque ---EN---) EN ESPAÑOL, natural y hablado, y deja el bloque ---ES--- VACÍO. (Los términos clave de ---KEY--- siguen en inglés.)' : '\n\nIDIOMA DE LA PREGUNTA: INGLÉS.') +
     (mode === 'tech' ? '\n\nModo técnico: al final añade ---KEY--- y los términos clave en inglés.' : '');
   try {
